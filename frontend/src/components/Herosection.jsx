@@ -6,7 +6,7 @@ import { useLanguage } from '@/context/languageContext';
 
 const HeroData = {
   en: {
-    title: 'With Muft Madad',
+    title: 'With Muft Madaad',
     subtitle: 'Get Your Treatment Free',
     points: [
       'Free OPD (Outpatient Department) services for all patients.',
