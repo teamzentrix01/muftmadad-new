@@ -44,10 +44,14 @@ export function CityProvider({ children }) {
             
             // Fallback: Try to fetch from backup URL if main fails
             try {
-                console.log('Trying fallback URL...');
-                const fallbackRes = await axios.get('http://localhost:4000/api/cities', {
-                    timeout: 5000
-                });
+               console.log('Trying fallback URL...');
+
+const fallbackRes = await axios.get(
+  `${process.env.NEXT_PUBLIC_API_URL}/cities`,
+  {
+    timeout: 5000
+  }
+);
                 const fallbackCities = fallbackRes.data?.data || fallbackRes.data || [];
                 setCities(fallbackCities.filter(c => c.is_active));
             } catch (fallbackError) {
