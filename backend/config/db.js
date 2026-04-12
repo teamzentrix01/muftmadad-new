@@ -40,6 +40,8 @@
 //module.exports = pool;
 
 
+require("dotenv").config(); // ⭐ THIS WAS MISSING
+
 const { Pool } = require('pg');
 
 const pool = new Pool({
@@ -57,6 +59,5 @@ pool.on('connect', () => {
 pool.on('error', (err) => {
     console.log('❌ DB Error:', err);
 });
-
 
 module.exports = pool;
