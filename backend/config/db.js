@@ -40,24 +40,21 @@
 //module.exports = pool;
 
 
-require("dotenv").config(); // ⭐ THIS WAS MISSING
+require("dotenv").config({ path: __dirname + "/../.env" });
 
-const { Pool } = require('pg');
+const { Pool } = require("pg");
+
+console.log("ENV DEBUG:", {
+  user: process.env.DB_USER,
+  db: process.env.DB_NAME
+});
 
 const pool = new Pool({
-    user: process.env.DB_USER,
-    host: process.env.DB_HOST,
-    database: process.env.DB_NAME,
-    password: process.env.DB_PASSWORD,
-    port: process.env.DB_PORT,
-});
-
-pool.on('connect', () => {
-    console.log("✅ Database connected successfully as:", process.env.DB_USER);
-});
-
-pool.on('error', (err) => {
-    console.log('❌ DB Error:', err);
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: process.env.DB_PORT,
 });
 
 module.exports = pool;
