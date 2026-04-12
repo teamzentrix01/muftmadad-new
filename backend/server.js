@@ -12,6 +12,7 @@ const hospitalRoutes = require("./routes/hospitals.routes");
 const doctorsRoutes = require("./routes/doctors.routes");
 const specialitiesRoutes = require('./routes/specialities.routes');
 const blogsRoutes = require('./routes/blogs.routes');
+const citiesRouter = require('./routes/cities');
 
 const PORT = process.env.PORT || 4000;
 const app = express();
@@ -40,7 +41,9 @@ const authLimiter = rateLimit({
     message: { message: "Too many requests, please try again later." }
 });
 
+
 // 4. Routes
+app.use('/api', citiesRouter);
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/hospitals", hospitalRoutes);
 app.use("/api/doctors", doctorsRoutes);

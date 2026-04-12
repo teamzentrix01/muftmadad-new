@@ -1,4 +1,5 @@
 import "./globals.css";
+import { CityProvider } from '@/context/cityContext';
 import { LanguageProvider } from '@/context/languageContext';
 
 export default function RootLayout({ children }) {
@@ -6,7 +7,9 @@ export default function RootLayout({ children }) {
     <html>
       <body>
         <LanguageProvider>
-          {children}
+          <CityProvider>
+            {children}
+          </CityProvider>
         </LanguageProvider>
       </body>
     </html>

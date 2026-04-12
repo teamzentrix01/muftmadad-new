@@ -41,14 +41,39 @@ const getAllReviewService = async () => {
     return result.rows;
 };
 
-const getCityReviewsService = async () => {
-    const query = `SELECT city FROM reviews ORDER BY created_at DESC`;
-    const result = await pool.query(query);
+const getCityReviewsService = async (city) => {
+    const query = `
+        SELECT * FROM reviews 
+        WHERE LOWER(city) = LOWER($1) 
+        ORDER BY created_at DESC
+    `;
+    const result = await pool.query(query, [city]);
     return result.rows;
-}
+};
+
+const updateReviewService = async (id, data) => {
+    const { name, description, treatment, rating, city, date } = data;
+    const query = `
+        UPDATE reviews
+        SET name=$1, description=$2, treatment=$3, rating=$4, city=$5, date=$6, updated_at=NOW()
+        WHERE id=$7
+        RETURNING *
+    `;
+    const values = [name, description, treatment, rating, city, date, id];
+    const result = await pool.query(query, values);
+    return result.rows[0];
+};
+
+const deleteReviewService = async (id) => {
+    const query = `DELETE FROM reviews WHERE id=$1 RETURNING *`;
+    const result = await pool.query(query, [id]);
+    return result.rows[0];
+};
 
 module.exports = {
     createReviewService,
     getAllReviewService,
-    getCityReviewsService
+    getCityReviewsService,
+      updateReviewService,      // ← add
+    deleteReviewService 
 };
