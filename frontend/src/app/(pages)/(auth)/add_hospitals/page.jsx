@@ -194,7 +194,7 @@ const DoctorForm = ({ onAddToList, hospitalName }) => {
             {doctorStep === 1 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">Name <span className="text-red-500"></span></label>
                         <input type="text" name="name" value={doctorData.name} onChange={handleChange} placeholder="Dr. Full Name" className={inputCls} />
                     </div>
                     <div>
@@ -500,21 +500,19 @@ const AdminHospitalForm = () => {
         setDoctorList(prev => prev.filter((_, i) => i !== index));
     };
 
-    const handleNext = () => {
-        if (currentStep === 1) {
-            if (!formData.name.trim()) { setMessage({ type: 'error', text: 'Hospital name is required.' }); return; }
-            if (!formData.phone.trim()) { setMessage({ type: 'error', text: 'Phone number is required.' }); return; }
-            if (!formData.email.trim()) { setMessage({ type: 'error', text: 'Email is required.' }); return; }
-        }
-        if (currentStep === 2) {
-            if (!formData.address.trim()) { setMessage({ type: 'error', text: 'Address is required.' }); return; }
-            if (!formData.city.trim()) { setMessage({ type: 'error', text: 'City is required.' }); return; }
-            if (!formData.state.trim()) { setMessage({ type: 'error', text: 'State is required.' }); return; }
-            if (!formData.country.trim()) { setMessage({ type: 'error', text: 'Country is required.' }); return; }
-        }
-        setMessage({ type: '', text: '' });
-        setCurrentStep(prev => Math.min(steps.length, prev + 1));
-    };
+const handleNext = () => {
+    if (currentStep === 1) {
+        if (!formData.name.trim()) { setMessage({ type: 'error', text: 'Hospital name is required.' }); return; }
+        if (!formData.phone.trim()) { setMessage({ type: 'error', text: 'Phone number is required.' }); return; }
+        if (!formData.email.trim()) { setMessage({ type: 'error', text: 'Email is required.' }); return; }
+    }
+    if (currentStep === 2) {
+        if (!formData.address.trim()) { setMessage({ type: 'error', text: 'Address is required.' }); return; }
+    }
+    setMessage({ type: '', text: '' });
+    setCurrentStep(prev => Math.min(steps.length, prev + 1));
+};
+
 
     const resetAll = () => {
         setFormData({
@@ -540,65 +538,66 @@ const AdminHospitalForm = () => {
         setMessage({ type: '', text: '' });
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formData.name.trim()) { setMessage({ type: 'error', text: 'Hospital name is required.' }); setCurrentStep(1); return; }
-        if (!formData.phone.trim()) { setMessage({ type: 'error', text: 'Phone number is required.' }); setCurrentStep(1); return; }
-        if (!formData.email.trim()) { setMessage({ type: 'error', text: 'Email is required.' }); setCurrentStep(1); return; }
-        if (!formData.address.trim()) { setMessage({ type: 'error', text: 'Address is required.' }); setCurrentStep(2); return; }
-        if (!formData.city.trim()) { setMessage({ type: 'error', text: 'City is required.' }); setCurrentStep(2); return; }
-        if (!formData.state.trim()) { setMessage({ type: 'error', text: 'State is required.' }); setCurrentStep(2); return; }
-        if (!formData.country.trim()) { setMessage({ type: 'error', text: 'Country is required.' }); setCurrentStep(2); return; }
+const handleSubmit = async (e) => {
+    e.preventDefault();
+    // Validate required fields
+    if (!formData.name.trim()) { setMessage({ type: 'error', text: 'Hospital name is required.' }); setCurrentStep(1); return; }
+    if (!formData.phone.trim()) { setMessage({ type: 'error', text: 'Phone number is required.' }); setCurrentStep(1); return; }
+    if (!formData.email.trim()) { setMessage({ type: 'error', text: 'Email is required.' }); setCurrentStep(1); return; }
+    if (!formData.address.trim()) { setMessage({ type: 'error', text: 'Address is required.' }); setCurrentStep(2); return; }
+    
+    // City, State, Country remain optional - no validation
 
-        setLoading(true);
-        setMessage({ type: '', text: '' });
-        setSubmitDetails(null);
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+    setSubmitDetails(null);
 
-        try {
-    await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/hospitals`, formData, {
-        headers: { 'Content-Type': 'application/json' },
-        withCredentials: true,
-    });
+    try {
+        await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/hospitals`, formData, {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true,
+        });
 
-            let doctorsOk = 0;
-            let doctorsFailed = [];
+        // Doctors submission remains optional
+        let doctorsOk = 0;
+        let doctorsFailed = [];
 
-            if (doctorList.length > 0) {
-                const results = await Promise.allSettled(
-                    doctorList.map(doc =>
-                        axios.post(`${process.env.NEXT_PUBLIC_API_URL}/doctors`, {
-                            ...doc,
-                            experience_in_years: doc.experience_in_years !== '' ? Number(doc.experience_in_years) : 0,
-                            consultation_fee: doc.consultation_fee !== '' ? Number(doc.consultation_fee) : 0,
-                            average_rating: doc.average_rating !== '' ? Number(doc.average_rating) : 0,
-                            total_reviews: doc.total_reviews !== '' ? Number(doc.total_reviews) : 0,
-                            total_patients_treated: doc.total_patients_treated !== '' ? Number(doc.total_patients_treated) : 0,
-                        }, { headers: { 'Content-Type': 'application/json' }, withCredentials: true })
-                    )
-                );
-                results.forEach((result, idx) => {
-                    if (result.status === 'fulfilled') { doctorsOk++; }
-                    else { doctorsFailed.push({ name: doctorList[idx].name, reason: result.reason?.response?.data?.message || result.reason?.message || 'Unknown error' }); }
-                });
-            }
-
-            localStorage.removeItem(STORAGE_KEY);
-            const allGood = doctorsFailed.length === 0;
-            setSubmitDetails({ doctorsOk, doctorsFailed });
-            setMessage({
-                type: allGood ? 'success' : 'warning',
-                text: allGood
-                    ? `Hospital created successfully${doctorsOk > 0 ? ` with ${doctorsOk} doctor(s)!` : '!'}`
-                    : `Hospital created. ${doctorsOk} doctor(s) saved, ${doctorsFailed.length} failed.`,
+        if (doctorList.length > 0) {
+            const results = await Promise.allSettled(
+                doctorList.map(doc =>
+                    axios.post(`${process.env.NEXT_PUBLIC_API_URL}/doctors`, {
+                        ...doc,
+                        experience_in_years: doc.experience_in_years !== '' ? Number(doc.experience_in_years) : 0,
+                        consultation_fee: doc.consultation_fee !== '' ? Number(doc.consultation_fee) : 0,
+                        average_rating: doc.average_rating !== '' ? Number(doc.average_rating) : 0,
+                        total_reviews: doc.total_reviews !== '' ? Number(doc.total_reviews) : 0,
+                        total_patients_treated: doc.total_patients_treated !== '' ? Number(doc.total_patients_treated) : 0,
+                    }, { headers: { 'Content-Type': 'application/json' }, withCredentials: true })
+                )
+            );
+            results.forEach((result, idx) => {
+                if (result.status === 'fulfilled') { doctorsOk++; }
+                else { doctorsFailed.push({ name: doctorList[idx].name, reason: result.reason?.response?.data?.message || result.reason?.message || 'Unknown error' }); }
             });
-            if (allGood) setTimeout(resetAll, 2500);
-
-        } catch (error) {
-            setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to create hospital profile' });
-        } finally {
-            setLoading(false);
         }
-    };
+
+        localStorage.removeItem(STORAGE_KEY);
+        const allGood = doctorsFailed.length === 0;
+        setSubmitDetails({ doctorsOk, doctorsFailed });
+        setMessage({
+            type: allGood ? 'success' : 'warning',
+            text: allGood
+                ? `Hospital created successfully${doctorsOk > 0 ? ` with ${doctorsOk} doctor(s)!` : '!'}`
+                : `Hospital created. ${doctorsOk} doctor(s) saved, ${doctorsFailed.length} failed.`,
+        });
+        if (allGood) setTimeout(resetAll, 2500);
+
+    } catch (error) {
+        setMessage({ type: 'error', text: error.response?.data?.message || 'Failed to create hospital profile' });
+    } finally {
+        setLoading(false);
+    }
+};
 
     const steps = [
         { id: 1, title: 'Basic Info', icon: Building2, color: 'text-blue-600' },
@@ -704,36 +703,38 @@ const AdminHospitalForm = () => {
                         )}
 
                         {/* Step 2 */}
-                        {currentStep === 2 && (
-                            <div className="space-y-6">
-                                <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-orange-200">
-                                    <div className="p-2 bg-orange-100 rounded-lg"><MapPin className="w-6 h-6 text-orange-600" /></div>
-                                    <h2 className="text-2xl font-medium text-gray-900">Location Details</h2>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Address <span className="text-red-500">*</span></label>
-                                        <textarea name="address" value={formData.address} onChange={handleChange} required rows={3} placeholder="Street address, landmark, area" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">City <span className="text-red-500">*</span></label>
-                                        <input type="text" name="city" value={formData.city} onChange={handleChange} required maxLength={100} placeholder="Enter city" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">State <span className="text-red-500">*</span></label>
-                                        <input type="text" name="state" value={formData.state} onChange={handleChange} required maxLength={100} placeholder="Enter state" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Pincode</label>
-                                        <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} maxLength={10} placeholder="Enter pincode" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-2">Country <span className="text-red-500">*</span></label>
-                                        <input type="text" name="country" value={formData.country} onChange={handleChange} required maxLength={100} placeholder="Enter country" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {/* Step 2 - Remove all * from labels */}
+{/* Step 2 - Only Address has red star */}
+{currentStep === 2 && (
+    <div className="space-y-6">
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b-2 border-orange-200">
+            <div className="p-2 bg-orange-100 rounded-lg"><MapPin className="w-6 h-6 text-orange-600" /></div>
+            <h2 className="text-2xl font-medium text-gray-900">Location Details</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Address <span className="text-red-500">*</span></label>
+                <textarea name="address" value={formData.address} onChange={handleChange} required rows={3} placeholder="Street address, landmark, area" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
+            </div>
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">City <span className="text-gray-400 text-xs">(Optional)</span></label>
+                <input type="text" name="city" value={formData.city} onChange={handleChange} maxLength={100} placeholder="Enter city (optional)" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
+            </div>
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">State <span className="text-gray-400 text-xs">(Optional)</span></label>
+                <input type="text" name="state" value={formData.state} onChange={handleChange} maxLength={100} placeholder="Enter state (optional)" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
+            </div>
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Pincode <span className="text-gray-400 text-xs">(Optional)</span></label>
+                <input type="text" name="pincode" value={formData.pincode} onChange={handleChange} maxLength={10} placeholder="Enter pincode (optional)" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
+            </div>
+            <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Country <span className="text-gray-400 text-xs">(Optional)</span></label>
+                <input type="text" name="country" value={formData.country} onChange={handleChange} maxLength={100} placeholder="Enter country (optional)" className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all" />
+            </div>
+        </div>
+    </div>
+)}
 
                         {/* Step 3 */}
                         {currentStep === 3 && (

@@ -13,12 +13,14 @@ const {
     getGalleryController,
     addGalleryController,
     removeGalleryImageController,
+    reorderHospitalsController,
 } = require('../controllers/hospitals.controller');
 
 // ── Core CRUD ──────────────────────────────────────────
 router.post('/',            createHospitalController);
 router.get('/',             getHospitalsBySpeciality);          // ✅ handles both ?specialty= and no filter
 router.get('/slug/:slug',   getHospitalBySlugController);
+router.post('/reorder', reorderHospitalsController);
 router.get('/:id',          getHospitalByIdController);
 router.put('/:id',          updateHospitalController);
 router.delete('/:id',       deleteHospitalController);

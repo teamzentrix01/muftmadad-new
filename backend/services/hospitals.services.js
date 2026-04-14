@@ -119,7 +119,7 @@ const getAllHospitalsService = async () => {
             COALESCE(array_length(h.available_specialities, 1), 0) AS real_speciality_count
         FROM hospitals h
         WHERE h.deleted_at IS NULL
-        ORDER BY h.created_at DESC
+        ORDER BY h.display_order ASC, h.created_at DESC
     `;
     const result = await pool.query(query);
     return result.rows;
@@ -279,6 +279,28 @@ const deleteHospitalService = async (id) => {
     return result.rows[0] || null;
 };
 
+const reorderHospitalsService = async (orderedIds) => {
+    // orderedIds = [{ id, display_order }, ...]
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        for (const { id, display_order } of orderedIds) {
+            await client.query(
+                `UPDATE hospitals SET display_order = $1, updated_at = NOW()
+                 WHERE id = $2 AND deleted_at IS NULL`,
+                [display_order, id]
+            );
+        }
+        await client.query('COMMIT');
+        return true;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+};
+
 module.exports = {
     createHospitalService,
     getAllHospitalsService,
@@ -291,5 +313,6 @@ module.exports = {
     getGalleryImagesService,
     getHospitalsBySpecialityService,
     getHospitalsByTreatmentService,
-    getHospitalsByCityService
+    getHospitalsByCityService,
+    reorderHospitalsService
 };
