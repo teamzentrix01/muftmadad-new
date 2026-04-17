@@ -176,7 +176,6 @@ const InfoRow = ({ icon: Icon, label, children }) => (
 const KEY_POINTS = [
   "Free OPD (Outpatient Department) services for all patients.",
   "50% discount on all diagnostic tests.",
-  "Medicines supplied free of cost at the time of admission.",
   "Free treatment, including all surgical procedures, for patients aged above 70 years.",
 ];
 

@@ -236,7 +236,7 @@ export default function TreatmentPage({ params }) {
                 {name}
               </h1>
               <p className="text-blue-100 text-sm sm:text-base">
-                Get Yourself Treated For {name} With Medpho
+                Get Yourself Treated For {name} With Muftmadad
               </p>
               <div className="flex flex-wrap gap-2 sm:gap-3 pt-1 text-xs sm:text-sm">
                 {ayushman_covered && (

@@ -28,7 +28,7 @@ export default function Footer() {
     contactTitle: "Contact",
     followUs: "FOLLOW US",
     subscribeUs: "SUBSCRIBE US",
-    email: "care@medpho.com",
+    email: "care@muftmadad.com",
     phone: "88569-88569",
     address: "Telemed Technologies Pvt Ltd\nFlat No. 1101, 22 KG Marg\nNew Delhi - 110001",
     rights: "© 2026 Muft Madad. All rights reserved."
@@ -48,7 +48,7 @@ export default function Footer() {
     contactTitle: "संपर्क करें",
     followUs: "हमें फॉलो करें",
     subscribeUs: "सब्सक्राइब करें",
-    email: "care@medpho.com",
+    email: "care@muftmadad.com",
     phone: "88569-88569",
     address: "टेलीमेड टेक्नोलॉजीज़ प्रा. लि.\nफ्लैट नं. 1101, 22 केजी मार्ग\nनई दिल्ली – 110001",
     rights: "© 2024 मुफ्त मदद. सर्वाधिकार सुरक्षित."

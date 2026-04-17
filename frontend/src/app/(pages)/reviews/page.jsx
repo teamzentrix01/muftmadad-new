@@ -162,7 +162,7 @@ const ReviewsPage = () => {
               </h1>
 
               <p className="text-lg md:text-xl mb-8 leading-relaxed text-white">
-                Discover how Medpho has transformed thousands of lives with compassionate care and expert treatment. Your journey to better health starts here.
+                Discover how Muftmadad has transformed thousands of lives with compassionate care and expert treatment. Your journey to better health starts here.
               </p>
 
               <div className="flex flex-wrap gap-4">
@@ -368,7 +368,7 @@ const ReviewsPage = () => {
             Ready to Start Your Journey?
           </h2>
           <p className="text-xl text-white mb-8">
-            Join thousands of satisfied patients who trusted Medpho for their treatment
+            Join thousands of satisfied patients who trusted Muftmadad for their treatment
           </p>
           <button className="bg-white text-blue-600 px-8 py-4 rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transform hover:scale-105 transition-all duration-300 cursor-pointer" onClick={() => handleNavigation()}>
             Book Free Consultation

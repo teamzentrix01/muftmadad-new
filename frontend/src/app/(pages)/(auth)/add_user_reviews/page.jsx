@@ -256,7 +256,7 @@ const ReviewForm = () => {
                                 <div className="relative">
                                     <FileText className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
                                     <textarea name="description" value={formData.description} onChange={handleChange}
-                                        placeholder="Share your experience with Medpho. How did the treatment help you?"
+                                        placeholder="Share your experience with MuftMadad. How did the treatment help you?"
                                         rows="6" required maxLength={500}
                                         className="w-full pl-12 pr-4 py-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-400 focus:bg-white transition-all resize-none text-gray-800" />
                                 </div>
