@@ -196,38 +196,64 @@ const AVAILABLE_SERVICES = [
 ];
 
 // ─── SpecialityCheckboxSelector ──────────────────────────────────────────────
-const SpecialityCheckboxSelector = ({ selected, onChange }) => {
+const SpecialityCheckboxSelector = ({
+  selected,
+  onChange,
+  onTreatmentsBySpeciality,
+}) => {
   const [specialities, setSpecialities] = useState([]);
+  const [allTreatments, setAllTreatments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const fetchSpecialities = async () => {
+    const fetchBoth = async () => {
       try {
-        const res = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/specialities`,
-          { withCredentials: true }
-        );
-        // Adjust based on your API response shape:
-        // res.data, res.data.data, res.data.specialities, etc.
-        const list = Array.isArray(res.data)
-          ? res.data
-          : res.data?.data ?? res.data?.specialities ?? [];
-        setSpecialities(list);
+        const [specRes, treatRes] = await Promise.all([
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/specialities`, {
+            withCredentials: true,
+          }),
+          axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAll`, {
+            withCredentials: true,
+          }),
+        ]);
+
+        const specList = Array.isArray(specRes.data)
+          ? specRes.data
+          : (specRes.data?.data ?? specRes.data?.specialities ?? []);
+        setSpecialities(specList);
+
+        const treatList = Array.isArray(treatRes.data)
+          ? treatRes.data
+          : (treatRes.data?.data ?? []);
+        setAllTreatments(treatList);
       } catch (err) {
         setError("Failed to load specialities.");
       } finally {
         setLoading(false);
       }
     };
-    fetchSpecialities();
+    fetchBoth();
   }, []);
 
-  const toggle = (name) => {
-    const updated = selected.includes(name)
-      ? selected.filter((s) => s !== name)
-      : [...selected, name];
+  const toggle = (label, specId) => {
+    const isRemoving = selected.includes(label);
+    const updated = isRemoving
+      ? selected.filter((s) => s !== label)
+      : [...selected, label];
     onChange(updated);
+
+    // Agar remove kr rhe ho to us speciality ke treatments bhi hata do
+    if (onTreatmentsBySpeciality) {
+      if (isRemoving) {
+        // Is speciality ke treatments nikalo
+        const removedTreatments = allTreatments
+          .filter((t) => String(t.specialty_id) === String(specId))
+          .map((t) => t.name);
+        onTreatmentsBySpeciality(removedTreatments, "remove");
+      }
+      // Add case mein kuch nahi — user khud treatments select karega
+    }
   };
 
   if (loading)
@@ -236,27 +262,51 @@ const SpecialityCheckboxSelector = ({ selected, onChange }) => {
         Loading specialities...
       </p>
     );
-  if (error)
-    return <p className="text-sm text-red-500">{error}</p>;
+  if (error) return <p className="text-sm text-red-500">{error}</p>;
   if (specialities.length === 0)
     return <p className="text-sm text-gray-400">No specialities found.</p>;
 
+  // Selected specialities ke IDs nikalo
+  const selectedSpecIds = specialities
+    .filter((sp) => {
+      const label =
+        sp.name_en ??
+        sp.name_hi ??
+        sp.name ??
+        sp.title ??
+        sp.speciality_name ??
+        String(sp.id ?? "");
+      return selected.includes(label);
+    })
+    .map((sp) => sp.id);
+
+  // Sirf selected specialities ke treatments dikhao
+  const filteredTreatments = allTreatments.filter((t) =>
+    selectedSpecIds.map(String).includes(String(t.specialty_id)),
+  );
+
   return (
-    <div>
+    <div className="space-y-4">
+      {/* Speciality Checkboxes */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-blue-50 p-4 rounded-lg border-2 border-blue-200 max-h-64 overflow-y-auto">
         {specialities.map((sp) => {
-          // Adjust field name: sp.name / sp.title / sp.speciality_name etc.
-          const label = sp.name_en ?? sp.name_hi ?? sp.name ?? sp.title ?? sp.speciality_name ?? String(sp.id ?? sp.uuid ?? sp.slug ?? "Unknown");
-const key = sp.id ?? sp.uuid ?? sp.slug ?? label;
+          const label =
+            sp.name_en ??
+            sp.name_hi ??
+            sp.name ??
+            sp.title ??
+            sp.speciality_name ??
+            String(sp.id ?? sp.uuid ?? sp.slug ?? "Unknown");
+          const key = sp.id ?? sp.uuid ?? sp.slug ?? label;
           return (
             <label
-  key={key}
-  className="flex items-center gap-2 cursor-pointer group"
->
+              key={key}
+              className="flex items-center gap-2 cursor-pointer group"
+            >
               <input
                 type="checkbox"
                 checked={selected.includes(label)}
-                onChange={() => toggle(label)}
+                onChange={() => toggle(label, sp.id)}
                 className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
               />
               <span className="text-sm text-gray-700 group-hover:text-blue-700 transition-colors">
@@ -266,10 +316,52 @@ const key = sp.id ?? sp.uuid ?? sp.slug ?? label;
           );
         })}
       </div>
+
       {selected.length > 0 && (
-        <p className="mt-2 text-xs text-blue-600 font-medium">
+        <p className="text-xs text-blue-600 font-medium">
           Selected ({selected.length}): {selected.join(", ")}
         </p>
+      )}
+
+      {/* Treatments — sirf tab dikhao jab koi speciality select ho */}
+      {selected.length > 0 && (
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Treatments Available{" "}
+            <span className="text-xs text-gray-400">
+              (selected specialities ke treatments)
+            </span>
+          </label>
+          {filteredTreatments.length === 0 ? (
+            <p className="text-xs text-gray-400 bg-gray-50 p-3 rounded-lg border border-gray-200">
+              In specialities ke liye koi treatment nahi mila.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-green-50 p-4 rounded-lg border-2 border-green-200 max-h-64 overflow-y-auto">
+              {filteredTreatments.map((t) => (
+                <label
+                  key={t.id}
+                  className="flex items-center gap-2 cursor-pointer group"
+                >
+                  <input
+                    type="checkbox"
+                    checked={(
+                      onTreatmentsBySpeciality?.__selectedTreatments ?? []
+                    ).includes(t.name)}
+                    onChange={() =>
+                      onTreatmentsBySpeciality &&
+                      onTreatmentsBySpeciality([t.name], "toggle")
+                    }
+                    className="w-4 h-4 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                  />
+                  <span className="text-sm text-gray-700 group-hover:text-green-700 transition-colors">
+                    {t.name}
+                  </span>
+                </label>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
@@ -506,17 +598,17 @@ const DoctorForm = ({ onAddToList, hospitalName }) => {
               </p>
             )}
           </div>
-         <div>
-  <label className="block text-sm font-semibold text-gray-700 mb-1">
-    Specialities
-  </label>
-  <SpecialityCheckboxSelector
-    selected={doctorData.specialities}
-    onChange={(updated) =>
-      setDoctorData((prev) => ({ ...prev, specialities: updated }))
-    }
-  />
-</div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">
+              Specialities
+            </label>
+            <SpecialityCheckboxSelector
+              selected={doctorData.specialities}
+              onChange={(updated) =>
+                setDoctorData((prev) => ({ ...prev, specialities: updated }))
+              }
+            />
+          </div>
           <div className="md:col-span-2">
             <label className="block text-sm font-semibold text-gray-700 mb-1">
               Sitting Plan{" "}
@@ -1625,18 +1717,21 @@ const AdminHospitalForm = () => {
                       onRemove={handleRemoveCertificateFile}
                     />
                   </div>
-                 <div>
-  <label className="block text-sm font-semibold text-gray-700 mb-2">
-    Specialities Available
-  </label>
-  <SpecialityCheckboxSelector
-    selected={formData.available_specialities}
-    onChange={(updated) =>
-      setFormData((prev) => ({ ...prev, available_specialities: updated }))
-    }
-  />
-</div>
-                  <div>
+                  {/* <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Specialities Available
+                    </label>
+                    <SpecialityCheckboxSelector
+                      selected={formData.available_specialities}
+                      onChange={(updated) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          available_specialities: updated,
+                        }))
+                      }
+                    />
+                  </div> */}
+                  {/* <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
                       Treatments Available{" "}
                       <span className="text-xs text-gray-400">
@@ -1658,6 +1753,57 @@ const AdminHospitalForm = () => {
                     {formData.available_treatments.length > 0 && (
                       <p className="mt-1 text-xs text-blue-600">
                         Saved: {formData.available_treatments.join(", ")}
+                      </p>
+                    )}
+                  </div> */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Specialities & Treatments Available
+                    </label>
+                    <SpecialityCheckboxSelector
+                      selected={formData.available_specialities}
+                      onChange={(updated) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          available_specialities: updated,
+                        }))
+                      }
+                      onTreatmentsBySpeciality={Object.assign(
+                        (treatmentNames, action) => {
+                          setFormData((prev) => {
+                            if (action === "remove") {
+                              return {
+                                ...prev,
+                                available_treatments:
+                                  prev.available_treatments.filter(
+                                    (t) => !treatmentNames.includes(t),
+                                  ),
+                              };
+                            }
+                            if (action === "toggle") {
+                              const name = treatmentNames[0];
+                              const exists =
+                                prev.available_treatments.includes(name);
+                              return {
+                                ...prev,
+                                available_treatments: exists
+                                  ? prev.available_treatments.filter(
+                                      (t) => t !== name,
+                                    )
+                                  : [...prev.available_treatments, name],
+                              };
+                            }
+                            return prev;
+                          });
+                        },
+                        { __selectedTreatments: formData.available_treatments },
+                      )}
+                    />
+                    {formData.available_treatments.length > 0 && (
+                      <p className="mt-2 text-xs text-green-600 font-medium">
+                        Selected Treatments (
+                        {formData.available_treatments.length}):{" "}
+                        {formData.available_treatments.join(", ")}
                       </p>
                     )}
                   </div>

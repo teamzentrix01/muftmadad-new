@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import { useEffect, useState, useRef, Suspense } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useLanguage } from '@/context/languageContext';
-import { getTreatmentIdFromLabel } from '@/data/treatmentPageData';
-import axios from 'axios';
+import { useEffect, useState, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useLanguage } from "@/context/languageContext";
+import { getTreatmentIdFromLabel } from "@/data/treatmentPageData";
+import axios from "axios";
 
-const CountUp = ({ end, duration = 2000, suffix = '' }) => {
+const CountUp = ({ end, duration = 2000, suffix = "" }) => {
   const [count, setCount] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef(null);
@@ -18,7 +18,7 @@ const CountUp = ({ end, duration = 2000, suffix = '' }) => {
           setIsVisible(true);
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1 },
     );
 
     if (ref.current) {
@@ -61,13 +61,15 @@ const CountUp = ({ end, duration = 2000, suffix = '' }) => {
 
 const TreatmentItem = ({ icon, label, onClick }) => (
   <div
-    className="flex flex-col items-center gap-2 p-2 cursor-pointer bg-white border border-gray-200 rounded-xl transition hover:shadow-md hover:border-gray-300"
+    className="flex flex-col items-center gap-3 p-3 cursor-pointer transition hover:scale-105"
     onClick={onClick}
   >
-    <div className="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-gray-100 rounded-lg p-1.5">
-      <img src={icon} alt={label} className="w-full h-full object-contain" />
+    <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 flex items-center justify-center bg-blue-50 rounded-full overflow-hidden border-2 border-blue-100 shadow-sm">
+      <img src={icon} alt={label} className="w-full h-full object-cover" />
     </div>
-    <p className="text-[11px] font-medium text-gray-800 leading-tight text-center break-words w-full">{label}</p>
+    <p className="text-[13px] sm:text-sm font-semibold text-gray-800 leading-snug text-center break-words w-full line-clamp-2">
+      {label}
+    </p>
   </div>
 );
 
@@ -77,34 +79,38 @@ function MedicalTreatmentsContent() {
   const searchParams = useSearchParams();
   const { lang } = useLanguage();
 
-  const currentLang = lang || searchParams.get('lang') || 'hi';
+  const currentLang = lang || searchParams.get("lang") || "hi";
 
   // State for API-fetched treatments
   const [treatments, setTreatments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  
   useEffect(() => {
     const fetchTreatments = async () => {
       try {
         setLoading(true);
         setError(null);
-const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAll`, {
-    params: { lang: currentLang },
-});
+        const response = await axios.get(
+          `${process.env.NEXT_PUBLIC_API_URL}/admin/getAll`,
+          {
+            params: { lang: currentLang },
+          },
+        );
 
         // Map response to extract only png_logo and name
         const fetched = response.data.map((item) => ({
           icon: item.png_logo,
           label: item.name,
-          specialty_id: item.specialty_id,   // matches DB column exactly
+         
+id: item.id,
+specialty_id: item.specialty_id,
         }));
 
         setTreatments(fetched);
       } catch (err) {
-        console.error('Failed to fetch treatments:', err);
-        setError('Failed to load treatments. Please try again.');
+        console.error("Failed to fetch treatments:", err);
+        setError("Failed to load treatments. Please try again.");
       } finally {
         setLoading(false);
       }
@@ -113,29 +119,30 @@ const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAl
     fetchTreatments();
   }, [currentLang]);
 
-  const handleTreatmentClick = (specialty_id) => {
-    router.push(`/treatments/${specialty_id}`);
+  // Naya - id pass karo, specialty_id nahi
+  const handleTreatmentClick = (id) => {
+    router.push(`/treatments/${id}`);
   };
 
   const pageTitle =
-    currentLang === 'en'
-      ? 'Treatments We Provide'
-      : 'हमारे द्वारा प्रदान किए जाने वाले उपचार';
+    currentLang === "en"
+      ? "Treatments We Provide"
+      : "हमारे द्वारा प्रदान किए जाने वाले उपचार";
 
   const stats =
-    currentLang === 'en'
+    currentLang === "en"
       ? {
-        consulted: 'Consulted Patients',
-        surgeries: 'Surgeries Performed',
-        cities: 'Cities',
-        hospitals: 'Partner Hospitals',
-      }
+          consulted: "Consulted Patients",
+          surgeries: "Surgeries Performed",
+          cities: "Cities",
+          hospitals: "Partner Hospitals",
+        }
       : {
-        consulted: 'परामर्शित मरीज',
-        surgeries: 'किए गए सर्जरी',
-        cities: 'शहर',
-        hospitals: 'सहयोगी अस्पताल',
-      };
+          consulted: "परामर्शित मरीज",
+          surgeries: "किए गए सर्जरी",
+          cities: "शहर",
+          hospitals: "सहयोगी अस्पताल",
+        };
 
   return (
     <div className="bg-white">
@@ -146,9 +153,9 @@ const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAl
             {pageTitle}
           </h1>
           <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
-            {currentLang === 'en'
-              ? 'Free treatment available for 25+ major diseases with up to 80% discount'
-              : '25+ प्रमुख रोगों का निःशुल्क इलाज 80% तक छूट के साथ उपलब्ध'}
+            {currentLang === "en"
+              ? "Free treatment available for 25+ major diseases with up to 80% discount"
+              : "25+ प्रमुख रोगों का निःशुल्क इलाज 80% तक छूट के साथ उपलब्ध"}
           </p>
         </div>
 
@@ -161,7 +168,9 @@ const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAl
 
         {/* Error State */}
         {error && !loading && (
-          <div className="text-center py-20 text-red-500 font-medium">{error}</div>
+          <div className="text-center py-20 text-red-500 font-medium">
+            {error}
+          </div>
         )}
 
         {/* Treatments Grid */}
@@ -172,7 +181,8 @@ const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAl
                 key={index}
                 icon={treatment.icon}
                 label={treatment.label}
-                onClick={() => handleTreatmentClick(treatment.specialty_id)}  // ← fixed
+                onClick={() => handleTreatmentClick(treatment.id)}
+                // ← fixed
               />
             ))}
           </div>
@@ -186,28 +196,36 @@ const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAl
               <div className="text-3xl md:text-4xl font-medium text-gray-900 mb-4 bg-linear-to-r from-green-600 to-blue-600 bg-clip-text text-transparent group-hover:scale-110 transition-all duration-500">
                 <CountUp end={1000} suffix="+" />
               </div>
-              <p className="text-md lg:text-xl font-medium text-gray-700">{stats.consulted}</p>
+              <p className="text-md lg:text-xl font-medium text-gray-700">
+                {stats.consulted}
+              </p>
             </div>
 
             <div className="group text-center">
               <div className="text-3xl md:text-4xl font-medium text-gray-900 mb-4 bg-linear-to-r from-orange-500 to-red-500 bg-clip-text text-transparent group-hover:scale-110 transition-all duration-500">
                 <CountUp end={200} suffix="+" />
               </div>
-              <p className="text-md lg:text-xl font-medium text-gray-700">{stats.surgeries}</p>
+              <p className="text-md lg:text-xl font-medium text-gray-700">
+                {stats.surgeries}
+              </p>
             </div>
 
             <div className="group text-center">
               <div className="text-3xl md:text-4xl font-medium text-gray-900 mb-4 bg-linear-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent group-hover:scale-110 transition-all duration-500">
                 <CountUp end={5} suffix="+" />
               </div>
-              <p className="text-md lg:text-xl font-medium text-gray-700">{stats.cities}</p>
+              <p className="text-md lg:text-xl font-medium text-gray-700">
+                {stats.cities}
+              </p>
             </div>
 
             <div className="group text-center">
               <div className="text-3xl md:text-4xl font-medium text-gray-900 mb-4 bg-linear-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent group-hover:scale-110 transition-all duration-500">
                 <CountUp end={12} suffix="+" />
               </div>
-              <p className="text-md lg:text-xl font-semibold text-gray-700">{stats.hospitals}</p>
+              <p className="text-md lg:text-xl font-semibold text-gray-700">
+                {stats.hospitals}
+              </p>
             </div>
           </div>
         </div>
@@ -219,7 +237,13 @@ const response = await axios.get(`${process.env.NEXT_PUBLIC_API_URL}/admin/getAl
 // Main component with Suspense wrapper
 export default function MedicalTreatmentsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
       <MedicalTreatmentsContent />
     </Suspense>
   );

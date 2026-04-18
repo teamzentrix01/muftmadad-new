@@ -40,11 +40,11 @@ const TestimonialCard = ({ name, treatment, description, city, date, rating, lan
     : '';
 
   return (
-    <div className="group bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl p-4 sm:p-5 lg:p-6 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-500 overflow-hidden relative">
+    <div className="group bg-white/90 backdrop-blur-sm border border-gray-200 rounded-xl p-3 sm:p-5 lg:p-6 shadow-md hover:shadow-lg hover:-translate-y-1 transition-all duration-500 overflow-hidden relative">
       <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/10 to-blue-400/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl"></div>
 
       {/* Stars */}
-      <div className="flex gap-0.5 mb-3 sm:mb-4 justify-center">
+      <div className="flex gap-0.5 mb-2 sm:mb-4 justify-center">
         {[...Array(5)].map((_, i) => (
           <Star key={i} className={`w-4 h-4 transition-transform group-hover:scale-110 ${
             i < (rating || 5) ? 'fill-yellow-400 text-yellow-400' : 'fill-gray-200 text-gray-200'
@@ -53,7 +53,7 @@ const TestimonialCard = ({ name, treatment, description, city, date, rating, lan
       </div>
 
       {/* Review */}
-      <blockquote className="text-gray-800 text-sm sm:text-base leading-relaxed italic mb-4 sm:mb-5 text-center relative z-10 line-clamp-4">
+      <blockquote className="text-gray-800 text-xs sm:text-base leading-relaxed italic mb-3 sm:mb-5 text-center relative z-10 line-clamp-3">
         &ldquo;{description}&rdquo;
       </blockquote>
 
@@ -89,6 +89,63 @@ const TestimonialCard = ({ name, treatment, description, city, date, rating, lan
   );
 };
 
+/* ── Mobile Slider ────────────────────────────────────────────────────── */
+const MobileSlider = ({ reviews, lang }) => {
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrent((prev) => (prev + 1) % reviews.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [reviews.length]);
+
+  const prev = () => setCurrent((p) => (p - 1 + reviews.length) % reviews.length);
+  const next = () => setCurrent((p) => (p + 1) % reviews.length);
+
+  return (
+    <div className="sm:hidden relative mb-8">
+      <div className="overflow-hidden rounded-xl">
+        <div
+          className="flex transition-transform duration-500 ease-in-out"
+          style={{ transform: `translateX(-${current * 100}%)` }}
+        >
+          {reviews.map((review, index) => (
+            <div key={review.id || review.uuid || index} className="min-w-full px-1">
+              <TestimonialCard {...review} lang={lang} />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Arrows */}
+      <button
+        onClick={prev}
+        className="absolute left-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/80 rounded-full shadow flex items-center justify-center text-gray-500 hover:text-gray-800 text-xs z-10"
+      >
+        ‹
+      </button>
+      <button
+        onClick={next}
+        className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 bg-white/80 rounded-full shadow flex items-center justify-center text-gray-500 hover:text-gray-800 text-xs z-10"
+      >
+        ›
+      </button>
+
+      {/* Dots */}
+      <div className="flex justify-center gap-1.5 mt-3">
+        {reviews.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setCurrent(i)}
+            className={`w-1.5 h-1.5 rounded-full transition-all ${i === current ? 'bg-emerald-500 w-3' : 'bg-gray-300'}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
 /* ── Main Component ───────────────────────────────────────────────────── */
 export default function PatientTestimonials() {
   const { lang } = useLanguage();
@@ -116,16 +173,16 @@ export default function PatientTestimonials() {
   const sectionTitle = lang === 'en' ? 'Our Patients Love Us' : 'हमारे मरीज हमें पसंद करते हैं';
 
   return (
-    <section className="relative w-full py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <section className="relative w-full py-8 sm:py-16 px-4 sm:px-6 lg:px-8 overflow-hidden">
       <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-yellow-50/50 to-transparent"></div>
 
       <div className="relative max-w-7xl mx-auto z-10">
         {/* Title */}
-        <div className="text-center mb-16 lg:mb-20">
+        <div className="text-center mb-8 lg:mb-20">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-serif uppercase font-medium bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent mb-6">
             {sectionTitle}
           </h2>
-          <p className="text-lg md:text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-sm md:text-xl text-gray-600 max-w-3xl mx-auto">
             {lang === 'en'
               ? `${reviews.length > 0 ? `${reviews.length}+` : '500+'} Happy Patients • 100% Success Rate`
               : `${reviews.length > 0 ? `${reviews.length}+` : '500+'} खुश मरीज • 100% सफलता दर`}
@@ -134,7 +191,7 @@ export default function PatientTestimonials() {
 
         {/* Loading */}
         {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-12">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-8 sm:mb-12">
             {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
           </div>
         )}
@@ -152,16 +209,23 @@ export default function PatientTestimonials() {
         )}
 
         {/* Reviews Grid — show max 6 on homepage */}
+       {/* Reviews — Desktop: grid, Mobile: auto slider */}
         {!loading && !error && reviews.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-12">
-            {reviews.slice(0, 6).map((review, index) => (
-              <TestimonialCard
-                key={review.id || review.uuid || index}
-                {...review}
-                lang={lang}
-              />
-            ))}
-          </div>
+          <>
+            {/* Desktop grid — same as before */}
+            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-12">
+              {reviews.slice(0, 6).map((review, index) => (
+                <TestimonialCard
+                  key={review.id || review.uuid || index}
+                  {...review}
+                  lang={lang}
+                />
+              ))}
+            </div>
+
+            {/* Mobile auto slider */}
+            <MobileSlider reviews={reviews.slice(0, 6)} lang={lang} />
+          </>
         )}
       </div>
     </section>

@@ -44,60 +44,73 @@ export default function TreatmentPage({ params }) {
 
   useEffect(() => {
     if (!specialty_id) return;
-  
-    const fetchAll = async () => {
-        try {
-            setLoading(true);
-            const treatRes = await axios.get(`${API}/admin/getBySpecialty/${specialty_id}`, {
-                withCredentials: true,
-            });
-            const arr = Array.isArray(treatRes.data) ? treatRes.data : (treatRes.data?.data || []);
-            const data = arr[0] || null;
-            if (!data) { setError('Treatment not found.'); return; }
-            setTreatmentData(data);
 
-            // ── Fetch specialty name ──
-            let specialityName = '';
-            try {
-                const specRes = await axios.get(`${API}/specialities/${data.specialty_id}`, { withCredentials: true });
-                specialityName = specRes.data?.data?.name_en || '';
-            } catch { }
+  const fetchAll = async () => {
+  try {
+    setLoading(true);
 
-            if (!specialityName) {
-                setLoading(false);
-                return;
-            }
+    // id se directly treatment dhundo
+    const treatRes = await axios.get(`${API}/admin/getAll`, {
+      withCredentials: true,
+    });
+    console.log("Full API response:", treatRes.data);
+console.log("First item:", treatRes.data[0]);
+console.log("specialty_id from URL:", specialty_id, typeof specialty_id);
 
-            // ── Fetch hospitals by specialty ──
-            const [hospRes, docRes] = await Promise.allSettled([
-                axios.get(`${API}/hospitals?specialty=${encodeURIComponent(specialityName)}`, { withCredentials: true }),
-                axios.get(`${API}/doctors?specialty=${encodeURIComponent(specialityName)}`, { withCredentials: true }),
-            ]);
+    const allTreatments = Array.isArray(treatRes.data) ? treatRes.data : [];
+    const data = allTreatments.find((item) => String(item.id) === String(specialty_id)) || null;
 
-            if (hospRes.status === 'fulfilled') {
-                const d = hospRes.value.data;
-                const hospList = Array.isArray(d) ? d : (d?.data || []);
-                setHospitals(hospList);
-            }
+    if (!data) {
+      setError("Treatment not found.");
+      return;
+    }
+    setTreatmentData(data);
 
-            // ── Fetch doctors by specialty directly ──
-            if (docRes.status === 'fulfilled') {
-                const d = docRes.value.data;
-                const docList = Array.isArray(d) ? d : (d?.data || []);
-                const unique = docList.filter((doc, i, arr) =>
-                    arr.findIndex(d => d.uuid === doc.uuid) === i
-                );
-                setDoctors(unique);
-            }
+    // specialty_id se specialty name dhundo
+    const specData = allTreatments.find(
+      (item) => item.specialty_id === data.specialty_id
+    );
+    const specialityName = specData?.comes_in || data?.comes_in || "";
 
-        } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load treatment data.');
-        } finally {
-            setLoading(false);
-        }
-    };
-    fetchAll();
-}, [specialty_id]);
+    if (!specialityName) {
+      setLoading(false);
+      return;
+    }
+
+    // hospitals aur doctors fetch karo
+    const [hospRes, docRes] = await Promise.allSettled([
+      axios.get(`${API}/hospitals?specialty=${encodeURIComponent(specialityName)}`, {
+        withCredentials: true,
+      }),
+      axios.get(`${API}/doctors?specialty=${encodeURIComponent(specialityName)}`, {
+        withCredentials: true,
+      }),
+    ]);
+
+    if (hospRes.status === "fulfilled") {
+      const d = hospRes.value.data;
+      const hospList = Array.isArray(d) ? d : d?.data || [];
+      setHospitals(hospList);
+    }
+
+    if (docRes.status === "fulfilled") {
+      const d = docRes.value.data;
+      const docList = Array.isArray(d) ? d : d?.data || [];
+      const unique = docList.filter(
+        (doc, i, arr) => arr.findIndex((d) => d.uuid === doc.uuid) === i
+      );
+      setDoctors(unique);
+    }
+
+    
+  } catch (err) {
+    setError(err.response?.data?.message || "Failed to load treatment data.");
+  } finally {
+    setLoading(false);
+  }
+};
+fetchAll();
+  }, [specialty_id]);
 
   const tabs = [
     {
@@ -787,10 +800,10 @@ export default function TreatmentPage({ params }) {
                   Book Free Consultation
                 </button>
                 <a
-                  href="tel:+911234567890"
+                  href="tel:+918679911800"
                   className="w-full flex items-center justify-center gap-2 bg-white/20 border border-white/30 text-white py-2.5 rounded-lg font-medium hover:bg-white/30 transition-all text-sm"
                 >
-                  <Phone className="w-4 h-4" /> +91 123 456 7890
+                  <Phone className="w-4 h-4" /> +91 8679911800
                 </a>
               </div>
 
@@ -871,7 +884,7 @@ export default function TreatmentPage({ params }) {
                   Book Consultation
                 </button>
                 <a
-                  href="tel:+911234567890"
+                  href="tel:+918679911800"
                   className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-white/20 border border-white/30 text-white px-4 py-2 rounded-lg font-medium text-xs hover:bg-white/30 transition-all"
                 >
                   <Phone className="w-3.5 h-3.5" /> Call Now
@@ -907,7 +920,7 @@ export default function TreatmentPage({ params }) {
                 {
                   label: "Phone Number",
                   type: "tel",
-                  placeholder: "+91 1234567890",
+                  placeholder: "+91 8679911800",
                 },
                 {
                   label: "Email",

@@ -59,13 +59,13 @@ export default function WhyChooseMuftMadad() {
         </div>
 
         {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
               <div
                 key={index}
-                className="group flex flex-col items-center text-center bg-white/90 backdrop-blur-sm rounded-2xl p-5 sm:p-6 lg:p-8 shadow-lg hover:shadow-xl border border-white/50 hover:border-emerald-300/50 transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02] relative overflow-hidden"
+              className={`group flex flex-col items-center text-center bg-white/90 backdrop-blur-sm rounded-2xl p-5 sm:p-6 lg:p-8 shadow-lg hover:shadow-xl border border-white/50 hover:border-emerald-300/50 transition-all duration-500 hover:-translate-y-2 hover:scale-[1.02] relative overflow-hidden ${index === 2 ? 'hidden md:flex' : ''}`}
               >
                 {/* Icon */}
                 <div className="relative mb-4 sm:mb-5 w-16 h-16 sm:w-20 sm:h-20 mx-auto p-4 bg-linear-to-br rounded-2xl shadow-lg group-hover:shadow-emerald-500/25 transition-all">

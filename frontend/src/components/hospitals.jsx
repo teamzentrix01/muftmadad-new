@@ -66,7 +66,8 @@ const HospitalCard = ({ hospital, fullWidth = false }) => {
         {hospital.phone && (
           <button onClick={e => { e.stopPropagation(); window.location.href = `tel:${hospital.phone}`; }}
             className="w-full bg-green-600 hover:bg-green-700 text-white text-xs font-medium py-2 px-3 rounded-lg flex items-center justify-center gap-1.5 transition-colors mb-3">
-            <Phone className="w-3.5 h-3.5" />{hospital.phone}
+            {/* <Phone className="w-3.5 h-3.5" />{hospital.phone} */}
+            <Phone className="w-3.5 h-3.5" />Call Now
           </button>
         )}
         {hospital.address && (
