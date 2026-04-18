@@ -1,3 +1,4 @@
+import ChatBot from '@/components/ChatBot'
 import Footer from '@/components/Footer'
 import Herosection from '@/components/Herosection'
 import HospitalsSection from '@/components/hospitals'
@@ -21,6 +22,7 @@ const page = () => {
       {/* <ImageBanner /> */}
       <HospitalsSection />
       <Footer />
+     <ChatBot/>
     </Fragment>
   )
 }
