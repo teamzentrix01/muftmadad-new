@@ -991,13 +991,13 @@ function TreatmentsListPage({ setPage }) {
     <ListPage
       title="All Treatments"
       entityName="Treatment"
-      fetchUrl={`${API}/admin/getAll`}
-      deleteUrl={`${API}/admin`}
-      updateUrl={`${API}/admin`}
+    fetchUrl={`${API}/admin/getAll`}
+deleteUrl={`${API}/admin`}      // ← keep if your DELETE route is DELETE /admin/:id
+updateUrl={`${API}/admin`}     
       idField="id"
       addKey="add-treatment"
       setPage={setPage}
-      viewUrl={(item) => `/treatment/${item.specialty_id}`}
+    viewUrl={(item) => `/treatments/${item.id}`}
       editFields={[
         { key: "name", label: "Treatment Name", type: "text" },
         { key: "slug", label: "Slug", type: "text" },

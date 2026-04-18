@@ -240,4 +240,11 @@ const updateTreatmentService = async (id, data) => {
   return result.rows[0];
 };
 
-module.exports = { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService }
+const deleteTreatmentService = async (id) => {
+  const query = `DELETE FROM treatments WHERE id = $1 RETURNING *;`;
+  const result = await pool.query(query, [id]);
+  if (!result.rows[0]) throw new Error('Treatment not found');
+  return result.rows[0];
+};
+
+module.exports = { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService }

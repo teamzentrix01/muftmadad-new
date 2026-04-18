@@ -1,4 +1,4 @@
- const { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService } = require("../services/treatment.services")
+const { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService } = require("../services/treatment.services")
 
 
 const createTreatmentController = async (req, res) => {
@@ -76,4 +76,18 @@ const updateTreatmentController = async (req, res) => {
     }
 };
 
-module.exports = { createTreatmentController, getAllTreatmentController, getTreatmentBySpecialtyIdController, updateTreatmentController }
+const deleteTreatmentController = async (req, res) => {
+    try {
+        const { id } = req.params;
+        await deleteTreatmentService(id);
+        return res.status(200).json({ success: true, message: 'Treatment deleted successfully' });
+    } catch (error) {
+        console.error('Error in deleteTreatment controller:', error);
+        return res.status(404).json({
+            success: false,
+            message: error.message || 'Treatment not found',
+        });
+    }
+};
+
+module.exports = { createTreatmentController, getAllTreatmentController, getTreatmentBySpecialtyIdController, updateTreatmentController,deleteTreatmentController }
