@@ -468,67 +468,263 @@ function ListPage({
 
 /* ─── Specialities List ──────────────────────────────────────────────────────*/
 function SpecialitiesListPage({ setPage }) {
+  const router = useRouter();
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const dragIndex = useRef(null);
+  const dragOverIndex = useRef(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/specialities`, { withCredentials: true });
+      const result = res.data?.data ?? res.data;
+      setData(Array.isArray(result) ? result : []);
+    } catch {
+      setToast({ msg: 'Failed to load data', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDragStart = (e, index) => {
+    dragIndex.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.style.opacity = '0.4';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+    document.querySelectorAll('tr[data-drag-row-sp]')
+      .forEach((el) => el.classList.remove('bg-blue-50', 'border-t-2', 'border-blue-400'));
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex.current !== index) {
+      document.querySelectorAll('tr[data-drag-row-sp]')
+        .forEach((el) => el.classList.remove('bg-blue-50', 'border-t-2', 'border-blue-400'));
+      dragOverIndex.current = index;
+      const row = document.querySelector(`tr[data-drag-row-sp="${index}"]`);
+      if (row) row.classList.add('bg-blue-50', 'border-t-2', 'border-blue-400');
+    }
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    const from = dragIndex.current;
+    if (from === null || from === dropIndex) return;
+    setData((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(from, 1);
+      updated.splice(dropIndex, 0, moved);
+      return updated;
+    });
+    dragIndex.current = null;
+    dragOverIndex.current = null;
+    document.querySelectorAll('tr[data-drag-row-sp]')
+      .forEach((el) => el.classList.remove('bg-blue-50', 'border-t-2', 'border-blue-400'));
+  };
+
+  const saveOrder = async () => {
+    setSaving(true);
+    try {
+      const orderedIds = data.map((item, idx) => ({
+        id: item.id,
+        display_order: idx + 1,
+      }));
+      await axios.post(`${API}/specialities/reorder`, { orderedIds }, { withCredentials: true });
+      setToast({ msg: 'Order saved! Frontend will now show specialities in this order.', type: 'success' });
+    } catch {
+      setToast({ msg: 'Failed to save order.', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await axios.delete(`${API}/specialities/${deleteTarget.id}`, { withCredentials: true });
+      setToast({ msg: 'Deleted successfully!', type: 'success' });
+      setData((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+    } catch {
+      setToast({ msg: 'Delete failed.', type: 'error' });
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const editFields = [
+    { key: 'name_en', label: 'Name (English)', type: 'text' },
+    { key: 'name_hi', label: 'Name (Hindi)', type: 'text' },
+    { key: 'slug', label: 'Slug', type: 'text' },
+    { key: 'image', label: 'Image URL', type: 'text' },
+    { key: 'description_en', label: 'Description (EN)', type: 'textarea' },
+    { key: 'description_hi', label: 'Description (HI)', type: 'textarea' },
+    { key: 'is_active', label: 'Is Active', type: 'checkbox' },
+  ];
+
+  const handleEdit = async (payload) => {
+    if (!editTarget) return;
+    setEditLoading(true);
+    try {
+      const res = await axios.put(`${API}/specialities/${editTarget.id}`, payload, { withCredentials: true });
+      const updated = res.data?.data || res.data;
+      setData((prev) => prev.map((d) => (d.id === editTarget.id ? { ...d, ...updated } : d)));
+      setToast({ msg: 'Updated successfully!', type: 'success' });
+      setEditTarget(null);
+    } catch (err) {
+      setToast({ msg: err.response?.data?.message || 'Update failed.', type: 'error' });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const columns = [
+    { key: 'name_en', label: 'Name (EN)' },
+    { key: 'name_hi', label: 'Name (HI)' },
+    { key: 'slug', label: 'Slug' },
+    { key: 'is_active', label: 'Status' },
+  ];
+
   return (
-    <ListPage
-      title="All Specialities"
-      entityName="Speciality"
-      fetchUrl={`${API}/specialities`}
-      deleteUrl={`${API}/specialities`}
-      updateUrl={`${API}/specialities`}
-      idField="id"
-      addKey="add-speciality"
-      setPage={setPage}
-      viewUrl={(item) => `/speciality/${item.id}`}
-      editFields={[
-        { key: "name_en", label: "Name (English)", type: "text" },
-        { key: "name_hi", label: "Name (Hindi)", type: "text" },
-        { key: "slug", label: "Slug", type: "text" },
-        { key: "image", label: "Image URL", type: "text" },
-        { key: "description_en", label: "Description (EN)", type: "textarea" },
-        { key: "description_hi", label: "Description (HI)", type: "textarea" },
-        { key: "is_active", label: "Is Active", type: "checkbox" },
-      ]}
-      columns={[
-        { key: "name_en", label: "Name (EN)" },
-        { key: "name_hi", label: "Name (HI)" },
-        { key: "slug", label: "Slug" },
-        { key: "is_active", label: "Status" },
-      ]}
-      renderRow={(item) => (
-        <>
-          <td className="py-3 sm:py-4 px-3 sm:px-5">
-            <div className="flex items-center gap-2 sm:gap-3">
-              {item.image ? (
-                <img
-                  src={item.image}
-                  alt=""
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover border shrink-0"
-                />
-              ) : (
-                <div
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-white shrink-0"
-                  style={{ background: "#6366f1" }}
-                >
-                  <Layers className="w-4 h-4" />
-                </div>
-              )}
-              <span className="font-semibold text-gray-800 text-sm">
-                {item.name_en}
-              </span>
-            </div>
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">
-            {item.name_hi || "—"}
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-500 font-mono">
-            {item.slug || "—"}
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5">
-            <Badge active={item.is_active} />
-          </td>
-        </>
+    <div className="p-4 sm:p-6 lg:p-8">
+      {deleteTarget && (
+        <ConfirmModal
+          message="Delete this Speciality?"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
-    />
+      {editTarget && (
+        <EditDrawer
+          title="Speciality"
+          item={editTarget}
+          fields={editFields}
+          onSave={handleEdit}
+          onClose={() => setEditTarget(null)}
+          loading={editLoading}
+        />
+      )}
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">All Specialities</h2>
+          <p className="text-gray-500 text-sm mt-1">{data.length} total records</p>
+          <p className="text-xs text-blue-500 mt-0.5 flex items-center gap-1">
+            <span>⠿</span> Drag rows to reorder · click <strong>Save Order</strong> to apply
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <button onClick={fetchData} className="p-2 hover:bg-gray-100 rounded-xl" title="Refresh">
+            <RefreshCw className="w-5 h-5 text-gray-600" />
+          </button>
+          <button
+            onClick={saveOrder}
+            disabled={saving}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white text-sm font-medium shadow bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Saving...' : 'Save Order'}
+          </button>
+          <button
+            onClick={() => setPage('add-speciality')}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white text-sm font-medium shadow"
+            style={{ background: grad }}
+          >
+            <Plus className="w-4 h-4" /> Add New
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400">
+            <RefreshCw className="w-6 h-6 animate-spin mr-3" /> Loading...
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <ClipboardList className="w-12 h-12 mb-3 opacity-20" />
+            <p className="font-medium">No records found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[600px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="py-4 px-3 text-xs font-bold text-gray-400 uppercase w-10"></th>
+                  <th className="text-left py-4 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
+                  {columns.map((col) => (
+                    <th key={col.key} className="text-left py-4 px-3 sm:px-5 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      {col.label}
+                    </th>
+                  ))}
+                  <th className="text-left py-4 px-3 sm:px-5 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((item, idx) => (
+                  <tr
+                    key={item.id ?? idx}
+                    data-drag-row-sp={idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-all cursor-grab active:cursor-grabbing"
+                  >
+                    <td className="py-3 px-3 text-gray-300 select-none text-lg text-center">⠿</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-500">{idx + 1}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        {item.image ? (
+                          <img src={item.image} alt="" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover border shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: '#6366f1' }}>
+                            <Layers className="w-4 h-4" />
+                          </div>
+                        )}
+                        <span className="font-semibold text-gray-800 text-sm">{item.name_en}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">{item.name_hi || '—'}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-500 font-mono">{item.slug || '—'}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5"><Badge active={item.is_active} /></td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => router.push(`/speciality/${item.id}`)} className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="View">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setEditTarget(item)} className="p-1.5 sm:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Edit">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setDeleteTarget(item)} className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <p className="text-center text-xs text-gray-400 mt-3">
+        After reordering, click <strong>Save Order</strong> to persist changes to the database.
+      </p>
+    </div>
   );
 }
 
@@ -987,183 +1183,288 @@ function HospitalsListPage({ setPage }) {
 /* ─── Treatments List ────────────────────────────────────────────────────────*/
 function TreatmentsListPage({ setPage }) {
   const router = useRouter();
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  const dragIndex = useRef(null);
+  const dragOverIndex = useRef(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await axios.get(`${API}/admin/getAll`, { withCredentials: true });
+      const result = res.data?.data ?? res.data;
+      setData(Array.isArray(result) ? result : []);
+    } catch {
+      setToast({ msg: 'Failed to load data', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleDragStart = (e, index) => {
+    dragIndex.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    e.currentTarget.style.opacity = '0.4';
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+    document.querySelectorAll('tr[data-drag-row-tr]')
+      .forEach((el) => el.classList.remove('bg-blue-50', 'border-t-2', 'border-blue-400'));
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverIndex.current !== index) {
+      document.querySelectorAll('tr[data-drag-row-tr]')
+        .forEach((el) => el.classList.remove('bg-blue-50', 'border-t-2', 'border-blue-400'));
+      dragOverIndex.current = index;
+      const row = document.querySelector(`tr[data-drag-row-tr="${index}"]`);
+      if (row) row.classList.add('bg-blue-50', 'border-t-2', 'border-blue-400');
+    }
+  };
+
+  const handleDrop = (e, dropIndex) => {
+    e.preventDefault();
+    const from = dragIndex.current;
+    if (from === null || from === dropIndex) return;
+    setData((prev) => {
+      const updated = [...prev];
+      const [moved] = updated.splice(from, 1);
+      updated.splice(dropIndex, 0, moved);
+      return updated;
+    });
+    dragIndex.current = null;
+    dragOverIndex.current = null;
+    document.querySelectorAll('tr[data-drag-row-tr]')
+      .forEach((el) => el.classList.remove('bg-blue-50', 'border-t-2', 'border-blue-400'));
+  };
+
+  const saveOrder = async () => {
+    setSaving(true);
+    try {
+      const orderedIds = data.map((item, idx) => ({
+        id: item.id,
+        display_order: idx + 1,
+      }));
+      await axios.post(`${API}/admin/reorder`, { orderedIds }, { withCredentials: true });
+      setToast({ msg: 'Order saved! Frontend will now show treatments in this order.', type: 'success' });
+    } catch {
+      setToast({ msg: 'Failed to save order.', type: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await axios.delete(`${API}/admin/${deleteTarget.id}`, { withCredentials: true });
+      setToast({ msg: 'Deleted successfully!', type: 'success' });
+      setData((prev) => prev.filter((d) => d.id !== deleteTarget.id));
+    } catch {
+      setToast({ msg: 'Delete failed.', type: 'error' });
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const editFields = [
+    { key: 'name', label: 'Treatment Name', type: 'text' },
+    { key: 'slug', label: 'Slug', type: 'text' },
+    { key: 'specialty_id', label: 'Specialty ID', type: 'number' },
+    { key: 'treatment_image', label: 'Treatment Image URL', type: 'text' },
+    { key: 'png_logo', label: 'PNG Logo URL', type: 'text' },
+    { key: 'comes_in', label: 'Category (comes_in)', type: 'text' },
+    { key: 'surgery_duration', label: 'Surgery Duration', type: 'text' },
+    { key: 'hospital_stay', label: 'Hospital Stay', type: 'text' },
+    { key: 'recovery_time', label: 'Recovery Time', type: 'text' },
+    { key: 'success_rate', label: 'Success Rate', type: 'text' },
+    { key: 'overview_description', label: 'Overview Description', type: 'textarea' },
+    { key: 'who_gets_description', label: 'Who Gets Description', type: 'textarea' },
+    { key: 'causes_description', label: 'Causes Description', type: 'textarea' },
+    { key: 'symptoms_description', label: 'Symptoms Description', type: 'textarea' },
+    { key: 'diagnosis_description', label: 'Diagnosis Description', type: 'textarea' },
+    { key: 'treatment_procedure_description', label: 'Procedure Description', type: 'textarea' },
+    { key: 'cost_description', label: 'Cost Description', type: 'textarea' },
+    { key: 'ayushman_covered', label: 'Ayushman Covered', type: 'checkbox' },
+    { key: 'ayushman_description', label: 'Ayushman Description', type: 'textarea' },
+    { key: 'key_benefits', label: 'Key Benefits', type: 'text', isArray: true },
+    { key: 'ideal_candidates', label: 'Ideal Candidates', type: 'text', isArray: true },
+    { key: 'not_suitable_for', label: 'Not Suitable For', type: 'text', isArray: true },
+    { key: 'pre_operative_steps', label: 'Pre-Operative Steps', type: 'text', isArray: true },
+    { key: 'surgical_procedure_steps', label: 'Surgical Steps', type: 'text', isArray: true },
+    { key: 'post_operative_steps', label: 'Post-Operative Steps', type: 'text', isArray: true },
+    { key: 'cost_factors', label: 'Cost Factors', type: 'text', isArray: true },
+    { key: 'ayushman_benefits', label: 'Ayushman Benefits', type: 'text', isArray: true },
+    { key: 'ayushman_eligibility', label: 'Ayushman Eligibility', type: 'text', isArray: true },
+    { key: 'ayushman_claim_steps', label: 'Ayushman Claim Steps', type: 'text', isArray: true },
+  ];
+
+  const handleEdit = async (payload) => {
+    if (!editTarget) return;
+    setEditLoading(true);
+    try {
+      const res = await axios.put(`${API}/admin/${editTarget.id}`, payload, { withCredentials: true });
+      const updated = res.data?.data || res.data;
+      setData((prev) => prev.map((d) => (d.id === editTarget.id ? { ...d, ...updated } : d)));
+      setToast({ msg: 'Updated successfully!', type: 'success' });
+      setEditTarget(null);
+    } catch (err) {
+      setToast({ msg: err.response?.data?.message || 'Update failed.', type: 'error' });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const columns = [
+    { key: 'name', label: 'Name' },
+    { key: 'specialty_id', label: 'Specialty ID' },
+    { key: 'surgery_duration', label: 'Duration' },
+    { key: 'hospital_stay', label: 'Stay' },
+    { key: 'recovery_time', label: 'Recovery' },
+    { key: 'success_rate', label: 'Success Rate' },
+  ];
+
   return (
-    <ListPage
-      title="All Treatments"
-      entityName="Treatment"
-    fetchUrl={`${API}/admin/getAll`}
-deleteUrl={`${API}/admin`}      // ← keep if your DELETE route is DELETE /admin/:id
-updateUrl={`${API}/admin`}     
-      idField="id"
-      addKey="add-treatment"
-      setPage={setPage}
-    viewUrl={(item) => `/treatments/${item.id}`}
-      editFields={[
-        { key: "name", label: "Treatment Name", type: "text" },
-        { key: "slug", label: "Slug", type: "text" },
-        { key: "specialty_id", label: "Specialty ID", type: "number" },
-        { key: "treatment_image", label: "Treatment Image URL", type: "text" },
-        { key: "png_logo", label: "PNG Logo URL", type: "text" },
-        { key: "comes_in", label: "Category (comes_in)", type: "text" },
-        { key: "surgery_duration", label: "Surgery Duration", type: "text" },
-        { key: "hospital_stay", label: "Hospital Stay", type: "text" },
-        { key: "recovery_time", label: "Recovery Time", type: "text" },
-        { key: "success_rate", label: "Success Rate", type: "text" },
-        {
-          key: "overview_description",
-          label: "Overview Description",
-          type: "textarea",
-        },
-        {
-          key: "who_gets_description",
-          label: "Who Gets Description",
-          type: "textarea",
-        },
-        {
-          key: "causes_description",
-          label: "Causes Description",
-          type: "textarea",
-        },
-        {
-          key: "symptoms_description",
-          label: "Symptoms Description",
-          type: "textarea",
-        },
-        {
-          key: "diagnosis_description",
-          label: "Diagnosis Description",
-          type: "textarea",
-        },
-        {
-          key: "treatment_procedure_description",
-          label: "Procedure Description",
-          type: "textarea",
-        },
-        {
-          key: "cost_description",
-          label: "Cost Description",
-          type: "textarea",
-        },
-        {
-          key: "ayushman_covered",
-          label: "Ayushman Covered",
-          type: "checkbox",
-        },
-        {
-          key: "ayushman_description",
-          label: "Ayushman Description",
-          type: "textarea",
-        },
-        {
-          key: "key_benefits",
-          label: "Key Benefits",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "ideal_candidates",
-          label: "Ideal Candidates",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "not_suitable_for",
-          label: "Not Suitable For",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "pre_operative_steps",
-          label: "Pre-Operative Steps",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "surgical_procedure_steps",
-          label: "Surgical Steps",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "post_operative_steps",
-          label: "Post-Operative Steps",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "cost_factors",
-          label: "Cost Factors",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "ayushman_benefits",
-          label: "Ayushman Benefits",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "ayushman_eligibility",
-          label: "Ayushman Eligibility",
-          type: "text",
-          isArray: true,
-        },
-        {
-          key: "ayushman_claim_steps",
-          label: "Ayushman Claim Steps",
-          type: "text",
-          isArray: true,
-        },
-      ]}
-      columns={[
-        { key: "name", label: "Name" },
-        { key: "specialty_id", label: "Specialty ID" },
-        { key: "surgery_duration", label: "Duration" },
-        { key: "hospital_stay", label: "Stay" },
-        { key: "recovery_time", label: "Recovery" },
-        { key: "success_rate", label: "Success Rate" },
-      ]}
-      renderRow={(item) => (
-        <>
-          <td className="py-3 sm:py-4 px-3 sm:px-5">
-            <div className="flex items-center gap-2 sm:gap-3">
-              {item.treatment_image ? (
-                <img
-                  src={item.treatment_image}
-                  alt=""
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover border shrink-0"
-                />
-              ) : (
-                <div
-                  className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-white shrink-0"
-                  style={{ background: "#f97316" }}
-                >
-                  <ClipboardList className="w-4 h-4" />
-                </div>
-              )}
-              <span className="font-semibold text-gray-800 text-sm">
-                {item.name}
-              </span>
-            </div>
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">
-            {item.specialty_id ?? "—"}
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">
-            {item.surgery_duration || "—"}
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">
-            {item.hospital_stay || "—"}
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">
-            {item.recovery_time || "—"}
-          </td>
-          <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">
-            {item.success_rate || "—"}
-          </td>
-        </>
+    <div className="p-4 sm:p-6 lg:p-8">
+      {deleteTarget && (
+        <ConfirmModal
+          message="Delete this Treatment?"
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
-    />
+      {editTarget && (
+        <EditDrawer
+          title="Treatment"
+          item={editTarget}
+          fields={editFields}
+          onSave={handleEdit}
+          onClose={() => setEditTarget(null)}
+          loading={editLoading}
+        />
+      )}
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">All Treatments</h2>
+          <p className="text-gray-500 text-sm mt-1">{data.length} total records</p>
+          <p className="text-xs text-blue-500 mt-0.5 flex items-center gap-1">
+            <span>⠿</span> Drag rows to reorder · click <strong>Save Order</strong> to apply
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <button onClick={fetchData} className="p-2 hover:bg-gray-100 rounded-xl" title="Refresh">
+            <RefreshCw className="w-5 h-5 text-gray-600" />
+          </button>
+          <button
+            onClick={saveOrder}
+            disabled={saving}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white text-sm font-medium shadow bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? 'Saving...' : 'Save Order'}
+          </button>
+          <button
+            onClick={() => setPage('add-treatment')}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-white text-sm font-medium shadow"
+            style={{ background: grad }}
+          >
+            <Plus className="w-4 h-4" /> Add New
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400">
+            <RefreshCw className="w-6 h-6 animate-spin mr-3" /> Loading...
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <ClipboardList className="w-12 h-12 mb-3 opacity-20" />
+            <p className="font-medium">No records found</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[700px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="py-4 px-3 text-xs font-bold text-gray-400 uppercase w-10"></th>
+                  <th className="text-left py-4 px-3 text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
+                  {columns.map((col) => (
+                    <th key={col.key} className="text-left py-4 px-3 sm:px-5 text-xs font-bold text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      {col.label}
+                    </th>
+                  ))}
+                  <th className="text-left py-4 px-3 sm:px-5 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((item, idx) => (
+                  <tr
+                    key={item.id ?? idx}
+                    data-drag-row-tr={idx}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragEnd={handleDragEnd}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-all cursor-grab active:cursor-grabbing"
+                  >
+                    <td className="py-3 px-3 text-gray-300 select-none text-lg text-center">⠿</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-500">{idx + 1}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        {item.treatment_image ? (
+                          <img src={item.treatment_image} alt="" className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg object-cover border shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: '#f97316' }}>
+                            <ClipboardList className="w-4 h-4" />
+                          </div>
+                        )}
+                        <span className="font-semibold text-gray-800 text-sm">{item.name}</span>
+                      </div>
+                    </td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">{item.specialty_id ?? '—'}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">{item.surgery_duration || '—'}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">{item.hospital_stay || '—'}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">{item.recovery_time || '—'}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5 text-sm text-gray-600">{item.success_rate || '—'}</td>
+                    <td className="py-3 sm:py-4 px-3 sm:px-5">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => router.push(`/treatments/${item.id}`)} className="p-1.5 sm:p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all" title="View">
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setEditTarget(item)} className="p-1.5 sm:p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-all" title="Edit">
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setDeleteTarget(item)} className="p-1.5 sm:p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      <p className="text-center text-xs text-gray-400 mt-3">
+        After reordering, click <strong>Save Order</strong> to persist changes to the database.
+      </p>
+    </div>
   );
 }
 

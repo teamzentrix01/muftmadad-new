@@ -6,6 +6,8 @@ const {
     deleteSpecialityService,
     updateSpecialityService,
 
+    reorderSpecialitiesService,
+
     
 } = require('../services/specialities.services');
 
@@ -64,6 +66,20 @@ const updateSpeciality = async (req, res) => {
     }
 };
 
+const reorderSpecialities = async (req, res) => {
+    try {
+        const { orderedIds } = req.body;
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+            return res.status(400).json({ message: 'orderedIds must be a non-empty array' });
+        }
+        await reorderSpecialitiesService(orderedIds);
+        return res.status(200).json({ message: 'Order saved successfully' });
+    } catch (error) {
+        console.error('Reorder specialities error:', error);
+        return res.status(500).json({ message: 'Failed to save order' });
+    }
+};
+
 module.exports = {
     createSpeciality,
     getAllSpecialities,
@@ -71,4 +87,5 @@ module.exports = {
     getSpecialityById,
     deleteSpeciality,
     updateSpeciality,
+    reorderSpecialities,
 };

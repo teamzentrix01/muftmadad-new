@@ -1,4 +1,4 @@
-const { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService } = require("../services/treatment.services")
+const { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService, reorderTreatmentService } = require("../services/treatment.services")
 
 
 const createTreatmentController = async (req, res) => {
@@ -90,4 +90,18 @@ const deleteTreatmentController = async (req, res) => {
     }
 };
 
-module.exports = { createTreatmentController, getAllTreatmentController, getTreatmentBySpecialtyIdController, updateTreatmentController,deleteTreatmentController }
+const reorderTreatmentController = async (req, res) => {
+    try {
+        const { orderedIds } = req.body;
+        if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+            return res.status(400).json({ message: 'orderedIds must be a non-empty array' });
+        }
+        await reorderTreatmentService(orderedIds);
+        return res.status(200).json({ message: 'Order saved successfully' });
+    } catch (error) {
+        console.error('Reorder treatments error:', error);
+        return res.status(500).json({ message: 'Failed to save order' });
+    }
+};
+
+module.exports = { createTreatmentController, getAllTreatmentController, getTreatmentBySpecialtyIdController, updateTreatmentController,deleteTreatmentController, reorderTreatmentController }

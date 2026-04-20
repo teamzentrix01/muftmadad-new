@@ -132,7 +132,7 @@ const createTreatmentService = async (treatmentData) => {
 }
 
 const getAllTreatmentService = async () => {
-  const query = `SELECT * FROM treatments;`;
+  const query = `SELECT * FROM treatments ORDER BY display_order ASC;`;
   const result = await pool.query(query);
   return result.rows;
 }
@@ -247,4 +247,13 @@ const deleteTreatmentService = async (id) => {
   return result.rows[0];
 };
 
-module.exports = { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService }
+const reorderTreatmentService = async (orderedIds) => {
+    for (const { id, display_order } of orderedIds) {
+        await pool.query(
+            'UPDATE treatments SET display_order = $1 WHERE id = $2',
+            [display_order, id]
+        );
+    }
+};
+
+module.exports = { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService,reorderTreatmentService }

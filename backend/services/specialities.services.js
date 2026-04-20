@@ -20,7 +20,7 @@ const createSpecialityService = async (data) => {
 
 const getAllSpecialitiesService = async () => {
     const result = await pool.query(
-        `SELECT * FROM specialities WHERE is_active = true ORDER BY id ASC`
+        `SELECT * FROM specialities WHERE is_active = true ORDER BY display_order ASC`
     );
     return { success: true, data: result.rows };
 };
@@ -82,6 +82,14 @@ const updateSpecialityService = async (id, data) => {
     if (!result.rows[0]) throw new Error('Speciality not found');
     return { success: true, data: result.rows[0] };
 };
+const reorderSpecialitiesService = async (orderedIds) => {
+    for (const { id, display_order } of orderedIds) {
+        await pool.query(
+            'UPDATE specialities SET display_order = $1 WHERE id = $2',
+            [display_order, id]
+        );
+    }
+};
 
 module.exports = {
     createSpecialityService,
@@ -90,4 +98,5 @@ module.exports = {
     getSpecialityByIdService,
     deleteSpecialityService,
     updateSpecialityService,  // ✅
+     reorderSpecialitiesService,
 };

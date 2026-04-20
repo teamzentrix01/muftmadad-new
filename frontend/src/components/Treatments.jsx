@@ -85,6 +85,7 @@ function MedicalTreatmentsContent() {
   const [treatments, setTreatments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
 
   useEffect(() => {
     const fetchTreatments = async () => {
@@ -174,19 +175,33 @@ specialty_id: item.specialty_id,
         )}
 
         {/* Treatments Grid */}
-        {!loading && !error && (
-          <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5 mb-10">
-            {treatments.map((treatment, index) => (
-              <TreatmentItem
-                key={index}
-                icon={treatment.icon}
-                label={treatment.label}
-                onClick={() => handleTreatmentClick(treatment.id)}
-                // ← fixed
-              />
-            ))}
-          </div>
-        )}
+       {/* Treatments Grid */}
+{/* Treatments Grid */}
+{!loading && !error && (
+  <>
+    <div className="grid grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5 mb-6">
+      {treatments.slice(0, 15).map((treatment, index) => (
+        <TreatmentItem
+          key={index}
+          icon={treatment.icon}
+          label={treatment.label}
+          onClick={() => handleTreatmentClick(treatment.id)}
+        />
+      ))}
+    </div>
+
+    {treatments.length > 15 && (
+      <div className="flex justify-center mb-10">
+        <button
+  onClick={() => router.push("/treatments")}
+  className="px-8 py-3 bg-blue-600 text-white font-semibold rounded-full hover:bg-blue-700 transition-all shadow-md text-sm"
+>
+  View All Treatments ({treatments.length}) →
+</button>
+      </div>
+    )}
+  </>
+)}
       </section>
 
       <section className="bg-white/80 backdrop-blur-sm">
