@@ -256,7 +256,7 @@ export default function SpecialityPage({ params }) {
                 {treatments.map((t) => (
                   <div
                     key={t.id || t.slug}
-                    onClick={() => router.push(`/treatments/${t.specialty_id}`)}
+                    onClick={() => router.push(`/treatments/${t.id}`)}
                     className="bg-white rounded-xl border border-gray-100 overflow-hidden cursor-pointer hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 group"
                   >
                     {t.treatment_image && (
