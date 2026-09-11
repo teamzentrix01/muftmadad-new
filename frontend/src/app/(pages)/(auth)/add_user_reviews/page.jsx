@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { saveAdminRecord } from '@/lib/admin-save';
+import { cleanDirectoryInput } from '@/lib/directory-validation';
 import { User, MapPin, Calendar, Star, FileText, Heart, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -18,6 +20,7 @@ const ReviewForm = () => {
     const [hoveredRating, setHoveredRating] = useState(0);
     const [submitted, setSubmitted] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [savedId, setSavedId] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
 
@@ -41,7 +44,7 @@ const ReviewForm = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => ({ ...prev, [name]: cleanDirectoryInput(name, value) }));
         if (errorMsg) setErrorMsg('');
     };
 
@@ -50,25 +53,17 @@ const ReviewForm = () => {
         if (errorMsg) setErrorMsg('');
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e, createNext = false) => {
         e.preventDefault();
+        if (loading) return;
         setLoading(true);
         setErrorMsg('');
         setSuccessMsg('');
         try {
-            const response = await axios.post(
-    `${process.env.NEXT_PUBLIC_API_URL}/users/reviews/create`,
-    formData,
-    { headers: { 'Content-Type': 'application/json' } }
-);
-
-            setSuccessMsg(response.data.message || 'Review submitted successfully!');
-            setSubmitted(true);
-            setTimeout(() => {
-                setSubmitted(false);
-                setFormData({ name: '', description: '', treatment: '', rating: 0, city: '', date: '' });
-                setSuccessMsg('');
-            }, 3000);
+            const record = await saveAdminRecord('/users/reviews/create', '/users/reviews', savedId, formData);
+            setSavedId(record.id);
+            setSuccessMsg('Review saved successfully.');
+            if (createNext) { setSavedId(null); setFormData({ name: '', description: '', treatment: '', rating: 0, city: '', date: '' }); }
         } catch (error) {
             setErrorMsg(
                 error.response?.data?.message ||
@@ -81,6 +76,7 @@ const ReviewForm = () => {
     };
 
     const handleClearForm = () => {
+        setSavedId(null);
         setFormData({ name: '', description: '', treatment: '', rating: 0, city: '', date: '' });
         setErrorMsg('');
         setSuccessMsg('');
@@ -275,9 +271,10 @@ const ReviewForm = () => {
                                 {loading ? (
                                     <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>Submitting...</>
                                 ) : (
-                                    <><Send className="w-5 h-5" />Submit Review</>
+                                    <><Send className="w-5 h-5" />Save</>
                                 )}
                             </button>
+                            <button type="button" disabled={!isFormValid || loading} onClick={e => handleSubmit(e, true)} className="px-5 py-3 bg-emerald-600 text-white rounded-lg font-semibold disabled:opacity-50">Save &amp; Create Next</button>
                             <button type="button" onClick={handleClearForm} disabled={loading}
                                 className="px-8 py-4 bg-orange-100 text-orange-700 rounded-xl font-bold text-lg hover:bg-orange-200 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
                                 Clear Form

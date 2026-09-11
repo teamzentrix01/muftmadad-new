@@ -5,9 +5,12 @@
   "main": "server.js",
   "module": "commonjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test tests/*.test.js",
     "start": "nodemon server.js",
-    "seed":"node ./scripts/users.script.js"
+    "seed": "node ./scripts/users.script.js",
+    "seed:cities": "node ./scripts/seed-cities.js",
+    "db:migrate": "node scripts/migrate.js",
+    "test:care": "node --test tests/care.test.js"
   },
   "author": "",
   "license": "ISC",

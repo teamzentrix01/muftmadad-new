@@ -37,7 +37,14 @@ const getAllDoctors = async (req, res) => {
 
 const getDoctorByUuid = async (req, res) => {
     try {
-        const doctor = await doctorsService.getDoctorByUuid(req.params.uuid);
+        const reference = req.params.uuid;
+        const numericId = /^[1-9]\d*$/.test(reference) && Number.isSafeInteger(Number(reference));
+        if (!numericId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reference)) {
+            return res.status(400).json({ success: false, message: 'Invalid doctor reference' });
+        }
+        const doctor = numericId
+            ? await doctorsService.getDoctorById(reference)
+            : await doctorsService.getDoctorByUuid(reference);
         if (!doctor) {
             return res.status(404).json({
                 success: false,

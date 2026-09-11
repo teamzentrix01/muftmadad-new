@@ -1,6 +1,6 @@
 'use client';
 import React, { useState } from 'react';
-import axios from 'axios';
+import { saveAdminRecord } from '@/lib/admin-save';
 
 export default function AddSpecialityForm() {
   const [form, setForm] = useState({
@@ -9,6 +9,7 @@ export default function AddSpecialityForm() {
   });
   const [msg, setMsg] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(false);
+  const [savedId, setSavedId] = useState(null);
 
   const generateSlug = (name) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -22,21 +23,18 @@ export default function AddSpecialityForm() {
     }));
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, createNext = false) => {
     e.preventDefault();
+    if (loading) return;
     setLoading(true);
     setMsg({ type: '', text: '' });
 
-    console.log('Submitting form data:', form); // ✅ log what we're sending
 
     try {
-      const res = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/specialities`,  form, {
-        headers: { 'Content-Type': 'application/json' },
-        withCredentials: true,
-      });
-      console.log('Success response:', res.data);
+      const record = await saveAdminRecord('/specialities', '/specialities', savedId, form);
+      setSavedId(record.id);
       setMsg({ type: 'success', text: 'Speciality added successfully!' });
-      setForm({ name_en: '', name_hi: '', slug: '', image: '', description_en: '', description_hi: '', is_active: true });
+      if (createNext) { setSavedId(null); setForm({ name_en: '', name_hi: '', slug: '', image: '', description_en: '', description_hi: '', is_active: true }); }
     } catch (err) {
       // ✅ Show the actual backend error message
       const backendMsg =
@@ -143,8 +141,9 @@ export default function AddSpecialityForm() {
             type="submit" disabled={loading}
             className="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50"
           >
-            {loading ? 'Saving...' : 'Add Speciality'}
+            {loading ? 'Saving...' : 'Save'}
           </button>
+          <button type="button" disabled={loading} onClick={e => { if (e.currentTarget.form.reportValidity()) handleSubmit(e, true); }} className="w-full py-3 bg-emerald-600 text-white rounded-lg font-semibold disabled:opacity-50">Save &amp; Create Next</button>
         </form>
 
         {/* ✅ Debug panel — remove in production */}

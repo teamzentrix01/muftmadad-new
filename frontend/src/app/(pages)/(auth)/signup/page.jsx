@@ -156,8 +156,9 @@ export default function SignupPage() {
       });
       
       // Handle successful signup
-      setSuccess('Account created successfully! Redirecting to login...');
+      setSuccess('Account created successfully! Opening hospital care...');
       
+      if (response.data.token) localStorage.setItem('authToken', response.data.token);
       // Store user data if provided (token will be in cookie)
       if (response.data.user) {
         localStorage.setItem('user', JSON.stringify(response.data.user));
@@ -175,8 +176,9 @@ export default function SignupPage() {
 
       // Redirect after 2 seconds
       setTimeout(() => {
-        console.log('Redirecting to dashboard...');
-        window.location.href = '/dashboard';
+        console.log('Opening hospital care...');
+        const next = new URLSearchParams(window.location.search).get('next');
+        window.location.href = next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/care';
         // OR if using React Router:
         // navigate('/dashboard');
       }, 2000);

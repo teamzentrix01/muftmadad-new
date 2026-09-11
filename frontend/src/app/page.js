@@ -9,12 +9,14 @@ import MedicalTreatmentsPage from '@/components/Treatments'
 // import ImageBanner from '@/components/ImageBanner'
 import WhyChooseMuftMadad from '@/components/Whychoose'
 import React, { Fragment } from 'react'
+import CareEntry from '@/components/care/CareEntry'
 
 const page = () => {
   return (
     <Fragment>
       <Navbar />
       <Herosection />
+      <CareEntry />
       <MedicalTreatmentsPage />
       <OurSpecialities />
       <WhyChooseMuftMadad />

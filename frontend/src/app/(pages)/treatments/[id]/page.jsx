@@ -1,5 +1,6 @@
 "use client";
 
+import { databaseImageSrc } from "@/lib/image-source.mjs";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { use } from "react";
@@ -271,7 +272,7 @@ fetchAll();
             {treatment_image && (
               <div className="hidden md:block">
                 <img
-                  src={treatment_image}
+                  src={databaseImageSrc(treatment_image)}
                   alt={name}
                   className="rounded-2xl shadow-2xl w-full h-56 lg:h-64 object-cover"
                 />
@@ -794,10 +795,10 @@ fetchAll();
                   Our experts are available 24/7
                 </p>
                 <button
-                  onClick={() => setShowContactForm(true)}
+                  onClick={() => router.push(`/care?treatment=${specialty_id}`)}
                   className="w-full bg-white text-blue-600 py-2.5 rounded-lg font-semibold hover:bg-blue-50 transition-all text-sm mb-2"
                 >
-                  Book Free Consultation
+                  Find Care & Compare Costs
                 </button>
                 <a
                   href="tel:+918679911800"
@@ -878,7 +879,7 @@ fetchAll();
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
                 <button
-                  onClick={() => setShowContactForm(true)}
+                  onClick={() => router.push(`/care?treatment=${specialty_id}`)}
                   className="flex-1 sm:flex-none bg-white text-blue-600 px-4 py-2 rounded-lg font-semibold text-xs hover:bg-blue-50 transition-all"
                 >
                   Book Consultation
@@ -896,61 +897,6 @@ fetchAll();
       </div>
 
       {/* ── Contact Modal ── */}
-      {showContactForm && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 sm:p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-4 sm:mb-5">
-              <h3 className="text-lg sm:text-xl font-bold text-gray-900">
-                Book Appointment
-              </h3>
-              <button
-                onClick={() => setShowContactForm(false)}
-                className="text-gray-400 hover:text-gray-600 text-lg"
-              >
-                ✕
-              </button>
-            </div>
-            <form className="space-y-3" onSubmit={(e) => e.preventDefault()}>
-              {[
-                {
-                  label: "Full Name",
-                  type: "text",
-                  placeholder: "Enter your name",
-                },
-                {
-                  label: "Phone Number",
-                  type: "tel",
-                  placeholder: "+91 8679911800",
-                },
-                {
-                  label: "Email",
-                  type: "email",
-                  placeholder: "your@email.com",
-                },
-                { label: "Preferred Date", type: "date", placeholder: "" },
-              ].map(({ label, type, placeholder }) => (
-                <div key={label}>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    {label}
-                  </label>
-                  <input
-                    type={type}
-                    placeholder={placeholder}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                  />
-                </div>
-              ))}
-              <button
-                type="submit"
-                className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-semibold hover:bg-blue-700 transition-all text-sm mt-1"
-              >
-                Submit Request
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
       <Footer />
 
       <style jsx>{`

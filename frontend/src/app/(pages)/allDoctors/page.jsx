@@ -17,7 +17,6 @@ const DoctorCard = ({ doctor }) => {
                         <img
                             src={doctor.photo}
                             alt={doctor.name}
-                            fill
                             className="object-cover w-full h-full"
                         />
                     ) : (
@@ -64,7 +63,7 @@ const DoctorCard = ({ doctor }) => {
             )}
 
             {/* View Details Button */}
-            <Link href={`/allDoctors/${doctor.id}`} className="w-full">
+            <Link href={`/allDoctors/${doctor.uuid || doctor.id}`} className="w-full">
 
                 <button className="w-full bg-white cursor-pointer hover:bg-blue-50 text-blue-600 font-semibold py-3 px-4 rounded-xl transition-all duration-200 flex items-center justify-center gap-2 group border border-blue-100">
                     View Details

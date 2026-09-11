@@ -127,6 +127,8 @@ const Navbar = () => {
                     </a>
 
                     {/* Select City */}
+                    <Link href="/care" className="rounded-lg bg-gradient-to-r from-blue-600 to-emerald-500 px-3 py-2 text-xs sm:text-sm font-semibold text-white whitespace-nowrap">Find Care</Link>
+                    <Link href="/labs" className="rounded-lg border border-blue-200 px-3 py-2 text-xs sm:text-sm font-semibold text-blue-700 whitespace-nowrap">Lab Tests</Link>
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => cities.length > 0 && setIsCityDropdownOpen(!isCityDropdownOpen)}

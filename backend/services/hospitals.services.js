@@ -1,3 +1,4 @@
+const { validateDirectoryContact } = require('../config/directory-validation');
 // services/hospital.services.js
 const pool = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
@@ -21,6 +22,7 @@ const toPoint = (location) => {
 };
 
 const createHospitalService = async (data) => {
+    validateDirectoryContact(data);
     const {
         uuid,
         name,
@@ -59,7 +61,7 @@ const createHospitalService = async (data) => {
         available_specialities, available_treatments, available_services, gallery_images,
         total_doctors, total_specialities,
         is_verified, is_active, meta_title, meta_description,
-        created_at, updated_at
+        created_at, updated_at, certificate_files
     )
     VALUES (
         $1,  $2,  $3,  $4,  $5,  $6,
@@ -69,7 +71,7 @@ const createHospitalService = async (data) => {
         $16, $17, $18, $19,
         $20, $21,
         $22, $23, $24, $25,
-        NOW(), NOW()
+        NOW(), NOW(), $26::jsonb
     )
     RETURNING *
 `;
@@ -85,7 +87,7 @@ const createHospitalService = async (data) => {
     city,                                           // $8
     state,                                          // $9
     pincode || null,                                // $10
-    country,                                        // $11
+    country || 'India',                             // $11
     pointValue,                                     // $12
     about || null,                                  // $13
     timing_display || null,                         // $14
@@ -100,6 +102,7 @@ const createHospitalService = async (data) => {
     is_active !== undefined ? is_active : true,     // $23
     meta_title || null,                             // $24
     meta_description || null,                       // $25
+    JSON.stringify(data.certificate_files || []),
 ];
 
     const result = await pool.query(query, values);
@@ -168,6 +171,7 @@ const getHospitalsByCityService = async (city) => {
 };
 
 const updateHospitalService = async (id, data) => {
+    validateDirectoryContact(data);
     const existing = await pool.query(
         'SELECT * FROM hospitals WHERE id = $1 AND deleted_at IS NULL', [id]
     );
@@ -175,7 +179,7 @@ const updateHospitalService = async (id, data) => {
 
     // Merge existing data with new data — only override what was sent
     const merged = { ...existing.rows[0], ...Object.fromEntries(
-        Object.entries(data).filter(([_, v]) => v !== null && v !== undefined && v !== '')
+        Object.entries(data).filter(([_, v]) => v !== undefined)
     )};
 
     const pointValue = toPoint(merged.location);
@@ -193,6 +197,7 @@ const updateHospitalService = async (id, data) => {
             available_services = $22,
             gallery_images = $23,
             available_treatments = $24,
+            certificate_files = $26::jsonb,
             updated_at = NOW()
         WHERE id = $25 AND deleted_at IS NULL
         RETURNING *
@@ -223,7 +228,8 @@ const updateHospitalService = async (id, data) => {
         merged.available_services || [],
         merged.gallery_images || [],
         merged.available_treatments || [],
-        id
+        id,
+        JSON.stringify(merged.certificate_files || [])
     ];
 
     const result = await pool.query(query, values);

@@ -1,5 +1,6 @@
 "use client";
 
+import { databaseImageSrc } from "@/lib/image-source.mjs";
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLanguage } from "@/context/languageContext";
@@ -13,7 +14,7 @@ const TreatmentItem = ({ icon, label, onClick }) => (
     onClick={onClick}
   >
     <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 flex items-center justify-center bg-blue-50 rounded-full overflow-hidden border-2 border-blue-100 shadow-sm">
-      <img src={icon} alt={label} className="w-full h-full object-cover" />
+      <img src={databaseImageSrc(icon)} alt={label} className="w-full h-full object-cover" />
     </div>
     <p className="text-[13px] sm:text-sm font-semibold text-gray-800 leading-snug text-center break-words w-full line-clamp-2">
       {label}

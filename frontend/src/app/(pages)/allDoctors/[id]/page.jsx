@@ -961,6 +961,7 @@ const DoctorProfile = ({ doctor }) => {
             flexWrap: "wrap",
           }}
         >
+          <a href={`/care?doctor=${doctor.id}`} className="rounded-xl bg-gradient-to-r from-blue-600 to-emerald-500 px-5 py-3 text-sm font-semibold text-white">Book appointment</a>
           {doctor.phone && (
             <a
               href={`tel:${doctor.phone}`}

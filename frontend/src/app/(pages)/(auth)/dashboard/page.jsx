@@ -29,6 +29,9 @@ import {
   MapPin,
   Menu,
 } from "lucide-react";
+import HospitalCareAdmin from '@/components/care/HospitalCareAdmin';
+import LabDashboard from '@/components/lab/LabDashboard';
+import DashboardNavigation from '@/components/lab/DashboardNavigation';
 import Navbar from "@/components/Navbar";
 import AdminDoctorForm from "../add_doctors/page";
 import AdminHospitalForm from "../add_hospitals/page";
@@ -1668,6 +1671,13 @@ function Sidebar({ activePage, setPage, isOpen, onClose }) {
       label: "Dashboard",
       key: "dashboard",
     },
+    { divider: true, label: "PATIENT CARE" },
+    { icon: <Calendar className="w-5 h-5" />, label: "Appointments", key: "care-appointments" },
+    { icon: <ClipboardList className="w-5 h-5" />, label: "Treatment Packages", key: "care-packages" },
+    { icon: <Calendar className="w-5 h-5" />, label: "Doctor Availability", key: "care-availability" },
+    { icon: <Users className="w-5 h-5" />, label: "Financial Assistance", key: "care-assistance" },
+    { icon: <CheckCircle2 className="w-5 h-5" />, label: "Follow-up Support", key: "care-followups" },
+    { icon: <Users className="w-5 h-5" />, label: "Hospital Access", key: "care-settings" },
     { divider: true, label: "ADD NEW" },
     {
       icon: <Layers className="w-5 h-5" />,
@@ -1734,9 +1744,9 @@ function Sidebar({ activePage, setPage, isOpen, onClose }) {
     { icon: <MapPin className="w-5 h-5" />,        label: 'All Cities',       key: 'list-cities' },
   ];
 
-  const handleNav = (key) => {
+  const handleNav = (key, keepOpen = false) => {
     setPage(key);
-    onClose(); // close on mobile after selecting
+    if (!keepOpen) onClose(); // close on mobile after selecting
   };
 
   return (
@@ -1771,28 +1781,7 @@ function Sidebar({ activePage, setPage, isOpen, onClose }) {
             </div>
           </div>
 
-          <nav className="space-y-1">
-            {nav.map((item, idx) =>
-              item.divider ? (
-                <p
-                  key={idx}
-                  className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 pt-4 pb-1"
-                >
-                  {item.label}
-                </p>
-              ) : (
-                <button
-                  key={item.key}
-                  onClick={() => handleNav(item.key)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-sm ${activePage === item.key ? "text-white shadow-lg" : "text-gray-600 hover:bg-gray-100"}`}
-                  style={activePage === item.key ? { background: grad } : {}}
-                >
-                  {item.icon}
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              ),
-            )}
-          </nav>
+          <DashboardNavigation hospitalNav={nav} activePage={activePage} onNavigate={handleNav} />
         </div>
 
         <div className="p-6 border-t border-gray-100">
@@ -2120,6 +2109,13 @@ function HamburgerMenu({ activePage, setPage }) {
       label: "Dashboard",
       key: "dashboard",
     },
+    { divider: true, label: "PATIENT CARE" },
+    { icon: <Calendar className="w-5 h-5" />, label: "Appointments", key: "care-appointments" },
+    { icon: <ClipboardList className="w-5 h-5" />, label: "Treatment Packages", key: "care-packages" },
+    { icon: <Calendar className="w-5 h-5" />, label: "Doctor Availability", key: "care-availability" },
+    { icon: <Users className="w-5 h-5" />, label: "Financial Assistance", key: "care-assistance" },
+    { icon: <CheckCircle2 className="w-5 h-5" />, label: "Follow-up Support", key: "care-followups" },
+    { icon: <Users className="w-5 h-5" />, label: "Hospital Access", key: "care-settings" },
     { divider: true, label: "ADD NEW" },
     {
       icon: <Layers className="w-5 h-5" />,
@@ -2186,9 +2182,9 @@ function HamburgerMenu({ activePage, setPage }) {
     { icon: <MapPin className="w-5 h-5" />,        label: 'All Cities',       key: 'list-cities' },
   ];
 
-  const handleNav = (key) => {
+  const handleNav = (key, keepOpen = false) => {
     setPage(key);
-    setOpen(false);
+    if (!keepOpen) setOpen(false);
   };
 
   const handleLogout = async () => {
@@ -2284,32 +2280,7 @@ function HamburgerMenu({ activePage, setPage }) {
 
         {/* Nav items — scrollable */}
         <div className="flex-1 overflow-y-auto px-4 py-3">
-          <nav className="space-y-1">
-            {nav.map((item, idx) =>
-              item.divider ? (
-                <p
-                  key={idx}
-                  className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 pt-4 pb-1"
-                >
-                  {item.label}
-                </p>
-              ) : (
-                <button
-                  key={item.key}
-                  onClick={() => handleNav(item.key)}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all text-sm ${
-                    activePage === item.key
-                      ? "text-white shadow-lg"
-                      : "text-gray-600 hover:bg-gray-100"
-                  }`}
-                  style={activePage === item.key ? { background: grad } : {}}
-                >
-                  {item.icon}
-                  <span className="font-medium">{item.label}</span>
-                </button>
-              ),
-            )}
-          </nav>
+          <DashboardNavigation hospitalNav={nav} activePage={activePage} onNavigate={handleNav} />
         </div>
 
         {/* Logout — pinned to bottom */}
@@ -2341,11 +2312,12 @@ export default function HospitalDashboard() {
         return;
       }
       try {
-        await axios.get(`${API}/auth/check-auth`, {
+        const session = await axios.get(`${API}/auth/check-auth`, {
           headers: { Authorization: `Bearer ${token}` },
           withCredentials: true,
           timeout: 5000,
         });
+        if (!session.data.user?.isadmin) { router.replace("/care?view=bookings"); return; }
         setAuthChecked(true);
       } catch {
         localStorage.removeItem("authToken");
@@ -2387,7 +2359,9 @@ export default function HospitalDashboard() {
           • Desktop → ml-64 for sidebar, pt-20 for just the Navbar
       */}
       <div className="lg:ml-64 pt-28 lg:pt-20">
-        {page === "dashboard" && <DashboardPage setPage={setPage} />}
+        {page === "dashboard" && <HospitalCareAdmin />}
+        {page.startsWith("lab-") && <LabDashboard key={page} tab={page.slice(4)} />}
+        {page.startsWith("care-") && <HospitalCareAdmin key={page} initialTab={page.slice(5)} />}
         {page === "add-speciality" && <AddSpecialityForm />}
         {page === "add-doctor" && <AdminDoctorForm />}
         {page === "add-hospital" && <AdminHospitalForm />}

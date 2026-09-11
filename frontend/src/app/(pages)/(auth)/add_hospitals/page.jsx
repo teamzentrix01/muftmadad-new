@@ -23,6 +23,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import { cleanDirectoryInput, directoryContactError } from '@/lib/directory-validation';
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 
@@ -178,6 +179,64 @@ const ImageUploadField = ({
   );
 };
 
+const QUALITY_SPECIALITIES = [
+  "Cardiology",
+  "General Medicine",
+  "General Surgery",
+  "Emergency Medicine",
+  "Neurosurgery",
+  "Psychiatry",
+  "Orthopedics",
+  "Gynecology",
+  "Pediatrics",
+  "Ophthalmology",
+  "ENT (Ear, Nose, Throat)",
+  "Gastroenterology",
+  "Nephrology",
+  "Urology",
+  "Oncology",
+  "Endocrinology",
+  "Dermatology",
+  "Oral & Maxillofacial Surgeon",
+  "Emergency / Trauma",
+  "Radiology",
+  "Blood Bank",
+  "Dentistry",
+  "Audiology",
+  "Physiotherapy",
+  "Pathology"
+];
+
+const QUALITY_TREATMENTS = [
+  "Hip Replacement Surgery",
+  "Spine Surgery (Slip Disc / Back Pain)",
+  "Ear Surgery (Tympanoplasty / Mastoidectomy)",
+  "Bladder Disorder Treatment",
+  "Urinary Tract Infection (UTI) Treatment",
+  "Hearing Loss Treatment",
+  "Tonsil & Adenoid Surgery (Tonsillectomy)",
+  "Joint Pain & Arthritis Treatment",
+  "Prostate Treatment",
+  "Tooth Extraction",
+  "Dental Filling",
+  "Root Canal Treatment (RCT)",
+  "Teeth Cleaning & Scaling",
+  "Heart Valve Replacement Surgery",
+  "Angioplasty & Stent Placement",
+  "General Emergency Stabilization",
+  "Fracture Surgery",
+  "Breathing Emergency (Asthma / Respiratory Failure)",
+  "Poisoning / Drug Overdose Treatment",
+  "Severe Infection / Sepsis Management",
+  "Stroke / Brain Emergency Management",
+  "Pacemaker / ICD Implantation",
+  "Cardiac Emergency Care",
+  "Knee Replacement Surgery",
+  "Kidney Stone Treatment (PCNL)",
+  "Sinus Surgery",
+  "Coronary Artery Bypass Surgery"
+];
+
 const AVAILABLE_SERVICES = [
   "Ambulance Available",
   "Blood Bank",
@@ -221,12 +280,14 @@ const SpecialityCheckboxSelector = ({
         const specList = Array.isArray(specRes.data)
           ? specRes.data
           : (specRes.data?.data ?? specRes.data?.specialities ?? []);
-        setSpecialities(specList);
+        const rank = name => { const index = QUALITY_SPECIALITIES.indexOf(name); return index < 0 ? QUALITY_SPECIALITIES.length : index; };
+        setSpecialities([...specList].sort((a,b) => rank(a.name_en)-rank(b.name_en)));
 
         const treatList = Array.isArray(treatRes.data)
           ? treatRes.data
           : (treatRes.data?.data ?? []);
-        setAllTreatments(treatList);
+        const treatmentRank = name => { const index = QUALITY_TREATMENTS.indexOf(name); return index < 0 ? QUALITY_TREATMENTS.length : index; };
+        setAllTreatments([...treatList].sort((a, b) => treatmentRank(a.name) - treatmentRank(b.name)));
       } catch (err) {
         setError("Failed to load specialities.");
       } finally {
@@ -284,11 +345,21 @@ const SpecialityCheckboxSelector = ({
   const filteredTreatments = allTreatments.filter((t) =>
     selectedSpecIds.map(String).includes(String(t.specialty_id)),
   );
+  const selectedTreatments = onTreatmentsBySpeciality?.__selectedTreatments ?? [];
+  const allTreatmentsSelected = filteredTreatments.length > 0 &&
+    filteredTreatments.every((t) => selectedTreatments.includes(t.name));
+  const specialityNames = [...new Set(specialities.map(sp => sp.name_en ?? sp.name_hi ?? sp.name ?? sp.title ?? sp.speciality_name ?? String(sp.id ?? '')))];
+  const allSpecialitiesSelected = specialityNames.every(name => selected.includes(name));
+  const toggleAllSpecialities = () => {
+    onChange(allSpecialitiesSelected ? [] : specialityNames);
+    if (allSpecialitiesSelected) onTreatmentsBySpeciality?.(selectedTreatments, 'remove');
+  };
 
   return (
     <div className="space-y-4">
       {/* Speciality Checkboxes */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-blue-50 p-4 rounded-lg border-2 border-blue-200 max-h-64 overflow-y-auto">
+      <div className="flex justify-end"><button type="button" onClick={toggleAllSpecialities} className="text-sm font-semibold text-blue-600 hover:underline">{allSpecialitiesSelected ? 'Deselect All' : 'Select All'}</button></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 bg-blue-50 p-4 rounded-lg border border-blue-200 max-h-72 overflow-y-auto">
         {specialities.map((sp) => {
           const label =
             sp.name_en ??
@@ -332,12 +403,13 @@ const SpecialityCheckboxSelector = ({
               (selected specialities ke treatments)
             </span>
           </label>
+          <div className="mb-2 flex justify-end"><button type="button" disabled={!filteredTreatments.length} onClick={() => onTreatmentsBySpeciality?.(filteredTreatments.map(t => t.name), allTreatmentsSelected ? 'remove' : 'add')} className="text-sm font-semibold text-green-700 hover:underline disabled:opacity-40">{allTreatmentsSelected ? 'Deselect All' : 'Select All'}</button></div>
           {filteredTreatments.length === 0 ? (
             <p className="text-xs text-gray-400 bg-gray-50 p-3 rounded-lg border border-gray-200">
               In specialities ke liye koi treatment nahi mila.
             </p>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-green-50 p-4 rounded-lg border-2 border-green-200 max-h-64 overflow-y-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 bg-green-50 p-4 rounded-lg border border-green-200 max-h-72 overflow-y-auto">
               {filteredTreatments.map((t) => (
                 <label
                   key={t.id}
@@ -413,11 +485,14 @@ const emptyDoctorLocalArrays = () => ({
 });
 
 // ─── Doctor Mini Form ─────────────────────────────────────────────────────────
-const DoctorForm = ({ onAddToList, hospitalName }) => {
+const DoctorForm = ({ onAddToList, hospitalName, onDirtyChange }) => {
   const [doctorData, setDoctorData] = useState(emptyDoctor());
   const [localArrayInputs, setLocalArrayInputs] = useState(
     emptyDoctorLocalArrays(),
   );
+  useEffect(() => {
+    onDirtyChange(Boolean(doctorData.name || doctorData.email || doctorData.phone || doctorData.photo || doctorData.overview || doctorData.address || doctorData.city || doctorData.state || doctorData.country || doctorData.registration_number || doctorData.meta_title || doctorData.meta_description || doctorData.experience_in_years !== '' || doctorData.consultation_fee !== '' || Object.values(localArrayInputs).some(Boolean)));
+  }, [doctorData, localArrayInputs, onDirtyChange]);
   const [doctorStep, setDoctorStep] = useState(1);
   const [error, setError] = useState("");
 
@@ -430,9 +505,10 @@ const DoctorForm = ({ onAddToList, hospitalName }) => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    e.target.setCustomValidity('');
     setDoctorData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : cleanDirectoryInput(name, value),
     }));
   };
 
@@ -449,6 +525,8 @@ const DoctorForm = ({ onAddToList, hospitalName }) => {
   };
 
   const handleAddToList = () => {
+    const contactError = directoryContactError(doctorData);
+    if (contactError) { setError(contactError); setDoctorStep(1); return; }
     if (!doctorData.name.trim()) {
       setError("Doctor name is required.");
       return;
@@ -465,6 +543,7 @@ const DoctorForm = ({ onAddToList, hospitalName }) => {
     setError("");
     const finalDoctor = {
       ...doctorData,
+      ...Object.fromEntries(Object.entries(localArrayInputs).map(([key, value]) => [key, value.split(',').map(x => x.trim()).filter(Boolean)])),
       serving_in_hospitals: hospitalName
         ? [hospitalName, ...doctorData.serving_in_hospitals]
         : doctorData.serving_in_hospitals,
@@ -515,6 +594,7 @@ const DoctorForm = ({ onAddToList, hospitalName }) => {
             <input
               type="email"
               name="email"
+                            onBlur={e => { const invalid = e.target.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value); e.target.setCustomValidity(invalid ? 'Invalid email. Use name@example.com.' : ''); if (invalid) e.target.reportValidity(); }}
               value={doctorData.email}
               onChange={handleChange}
               placeholder="doctor@example.com"
@@ -528,6 +608,9 @@ const DoctorForm = ({ onAddToList, hospitalName }) => {
             <input
               type="text"
               name="phone"
+                            inputMode="numeric"
+                            pattern="[6-9][0-9]{9}"
+                            onBlur={e => { const invalid = e.target.value && !/^[6-9][0-9]{9}$/.test(e.target.value); e.target.setCustomValidity(invalid ? 'Invalid mobile number. Enter 10 digits starting with 6, 7, 8 or 9.' : ''); if (invalid) e.target.reportValidity(); }}
               value={doctorData.phone}
               onChange={handleChange}
               placeholder="+91 9876543210"
@@ -1045,6 +1128,7 @@ const AdminHospitalForm = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: "", text: "" });
   const [submitDetails, setSubmitDetails] = useState(null);
+  const [savedHospitalId, setSavedHospitalId] = useState(null);
   const [localArrayInputs, setLocalArrayInputs] = useState({
     certifications: "",
     available_specialities: "",
@@ -1060,6 +1144,7 @@ const AdminHospitalForm = () => {
     }
   });
   const [showDoctorForm, setShowDoctorForm] = useState(false);
+  const [doctorFormDirty, setDoctorFormDirty] = useState(false);
 
   useEffect(() => {
     try {
@@ -1069,9 +1154,10 @@ const AdminHospitalForm = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
+    e.target.setCustomValidity('');
     setFormData((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: type === "checkbox" ? checked : cleanDirectoryInput(name, value),
     }));
   };
 
@@ -1147,11 +1233,11 @@ const AdminHospitalForm = () => {
   const generateSlug = (name) =>
     name
       .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/[^\p{L}\p{M}0-9]+/gu, "-")
       .replace(/^-+|-+$/g, "");
 
   const handleNameChange = (e) => {
-    const name = e.target.value;
+    const name = cleanDirectoryInput('name', e.target.value);
     setFormData((prev) => ({ ...prev, name, slug: generateSlug(name) }));
   };
 
@@ -1190,6 +1276,9 @@ const AdminHospitalForm = () => {
   };
 
   const resetAll = () => {
+    setSavedHospitalId(null);
+    setShowDoctorForm(false);
+    setDoctorFormDirty(false);
     setFormData({
       uuid: uuidv4(),
       name: "",
@@ -1234,8 +1323,15 @@ const AdminHospitalForm = () => {
     setMessage({ type: "", text: "" });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, createNext = false) => {
+    e?.preventDefault();
+    if (loading) return;
+    const contactError = directoryContactError(formData);
+    if (contactError) { setMessage({ type: 'error', text: contactError }); setCurrentStep(1); return; }
+    if (showDoctorForm && doctorFormDirty) {
+      setMessage({ type: "error", text: "Use Add to List for the open doctor form before saving the hospital, so its details are included." });
+      setCurrentStep(9); return;
+    }
     // Validate required fields
     if (!formData.name.trim()) {
       setMessage({ type: "error", text: "Hospital name is required." });
@@ -1258,33 +1354,45 @@ const AdminHospitalForm = () => {
       return;
     }
 
-    // City, State, Country remain optional - no validation
+    if (!formData.city.trim()) {
+      setMessage({ type: "error", text: "City is required. Enter the hospital location before saving." });
+      setCurrentStep(2); return;
+    }
 
     setLoading(true);
     setMessage({ type: "", text: "" });
     setSubmitDetails(null);
 
     try {
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/hospitals`,
-        formData,
-        {
-          headers: { "Content-Type": "application/json" },
-          withCredentials: true,
-        },
-      );
+      const api = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+      if (!api) throw new Error('Hospital API is not configured. Restart the frontend after setting NEXT_PUBLIC_API_URL.');
+      const token = localStorage.getItem('authToken');
+      const headers = { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+      const payload = { ...formData, email: formData.email.trim().toLowerCase(),
+        slug: formData.slug.trim() || generateSlug(formData.name),
+        country: formData.country.trim() || 'India',
+        certifications: localArrayInputs.certifications.split(',').map(x => x.trim()).filter(Boolean),
+        gallery_images: [...new Set([...formData.gallery_images, ...galleryUrlInput.split(',').map(x => x.trim()).filter(Boolean)])],
+      };
+      const response = await axios({ method: savedHospitalId ? 'put' : 'post',
+        url: `${api}/hospitals${savedHospitalId ? '/' + savedHospitalId : ''}`,
+        data: payload, headers, withCredentials: true });
+      setSavedHospitalId(response.data.data.id);
+      setFormData(payload); setGalleryUrlInput('');
 
       // Doctors submission remains optional
       let doctorsOk = 0;
       let doctorsFailed = [];
+      const failedDoctorUuids = new Set();
 
       if (doctorList.length > 0) {
         const results = await Promise.allSettled(
           doctorList.map((doc) =>
             axios.post(
-              `${process.env.NEXT_PUBLIC_API_URL}/doctors`,
+              `${api}/doctors`,
               {
                 ...doc,
+                serving_in_hospitals: [...new Set([...(doc.serving_in_hospitals || []), payload.name])],
                 experience_in_years:
                   doc.experience_in_years !== ""
                     ? Number(doc.experience_in_years)
@@ -1303,7 +1411,7 @@ const AdminHospitalForm = () => {
                     : 0,
               },
               {
-                headers: { "Content-Type": "application/json" },
+                headers,
                 withCredentials: true,
               },
             ),
@@ -1313,6 +1421,7 @@ const AdminHospitalForm = () => {
           if (result.status === "fulfilled") {
             doctorsOk++;
           } else {
+            failedDoctorUuids.add(doctorList[idx].uuid);
             doctorsFailed.push({
               name: doctorList[idx].name,
               reason:
@@ -1324,21 +1433,24 @@ const AdminHospitalForm = () => {
         });
       }
 
-      localStorage.removeItem(STORAGE_KEY);
+      setDoctorList(doctorList.filter(doc => failedDoctorUuids.has(doc.uuid)));
       const allGood = doctorsFailed.length === 0;
       setSubmitDetails({ doctorsOk, doctorsFailed });
       setMessage({
         type: allGood ? "success" : "warning",
         text: allGood
-          ? `Hospital created successfully${doctorsOk > 0 ? ` with ${doctorsOk} doctor(s)!` : "!"}`
-          : `Hospital created. ${doctorsOk} doctor(s) saved, ${doctorsFailed.length} failed.`,
+          ? `Hospital saved successfully${doctorsOk > 0 ? ` with ${doctorsOk} doctor(s)!` : "!"}`
+          : `Hospital saved. ${doctorsOk} doctor(s) saved, ${doctorsFailed.length} failed.`,
       });
-      if (allGood) setTimeout(resetAll, 2500);
+      if (allGood && createNext) {
+        resetAll();
+        setMessage({ type: "success", text: "Hospital and doctors saved. You can create the next hospital now." });
+      }
     } catch (error) {
       setMessage({
         type: "error",
         text:
-          error.response?.data?.message || "Failed to create hospital profile",
+          error.response?.data?.message || (error.request ? "Cannot reach the hospital server. Check your connection and retry; your form has been kept." : error.message) || "Failed to save hospital profile",
       });
     } finally {
       setLoading(false);
@@ -1501,10 +1613,13 @@ const AdminHospitalForm = () => {
                     <input
                       type="tel"
                       name="phone"
+                            inputMode="numeric"
+                            pattern="[6-9][0-9]{9}"
+                            onBlur={e => { const invalid = e.target.value && !/^[6-9][0-9]{9}$/.test(e.target.value); e.target.setCustomValidity(invalid ? 'Invalid mobile number. Enter 10 digits starting with 6, 7, 8 or 9.' : ''); if (invalid) e.target.reportValidity(); }}
                       value={formData.phone}
                       onChange={handleChange}
                       required
-                      maxLength={20}
+                      maxLength={10}
                       placeholder="+91 1234567890"
                       className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
@@ -1516,6 +1631,7 @@ const AdminHospitalForm = () => {
                     <input
                       type="email"
                       name="email"
+                            onBlur={e => { const invalid = e.target.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value); e.target.setCustomValidity(invalid ? 'Invalid email. Use name@example.com.' : ''); if (invalid) e.target.reportValidity(); }}
                       value={formData.email}
                       onChange={handleChange}
                       required
@@ -1771,6 +1887,15 @@ const AdminHospitalForm = () => {
                       onTreatmentsBySpeciality={Object.assign(
                         (treatmentNames, action) => {
                           setFormData((prev) => {
+                            if (action === "add") {
+                              return {
+                                ...prev,
+                                available_treatments: [...new Set([
+                                  ...prev.available_treatments,
+                                  ...treatmentNames,
+                                ])],
+                              };
+                            }
                             if (action === "remove") {
                               return {
                                 ...prev,
@@ -1811,7 +1936,8 @@ const AdminHospitalForm = () => {
                     <label className="block text-sm font-semibold text-gray-700 mb-3">
                       Services Available
                     </label>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                    <div className="mb-2 flex justify-end"><button type="button" onClick={() => setFormData(prev => ({ ...prev, available_services: AVAILABLE_SERVICES.every(service => prev.available_services.includes(service)) ? [] : [...AVAILABLE_SERVICES] }))} className="text-sm font-semibold text-blue-600 hover:underline">{AVAILABLE_SERVICES.every(service => formData.available_services.includes(service)) ? 'Deselect All' : 'Select All'}</button></div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 bg-blue-50 p-4 rounded-lg border border-blue-200">
                       {AVAILABLE_SERVICES.map((service) => (
                         <label
                           key={service}
@@ -2000,6 +2126,7 @@ const AdminHospitalForm = () => {
                 </div>
                 {showDoctorForm && (
                   <DoctorForm
+                    onDirtyChange={setDoctorFormDirty}
                     onAddToList={handleAddDoctorToList}
                     hospitalName={formData.name}
                   />
@@ -2153,8 +2280,9 @@ const AdminHospitalForm = () => {
               </div>
             )}
 
+            {message.text && <p role={message.type === 'error' ? 'alert' : 'status'} className={`mt-5 rounded-lg p-3 text-sm ${message.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-800'}`}>{message.text}</p>}
             {/* Navigation */}
-            <div className="flex justify-between items-end pt-6 border-t-2 border-gray-200 mt-8">
+            <div className="flex flex-wrap gap-3 justify-between items-end pt-6 border-t-2 border-gray-200 mt-8">
               <button
                 type="button"
                 onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
@@ -2163,6 +2291,8 @@ const AdminHospitalForm = () => {
               >
                 <ChevronLeft className="w-5 h-5" /> Previous
               </button>
+              <div className="ml-auto flex flex-wrap items-end justify-end gap-3">
+              <button type="button" disabled={loading} onClick={(e) => handleSubmit(e)} className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold disabled:opacity-50 flex items-center gap-2"><Save className="w-5 h-5" />{loading ? 'Saving...' : 'Save'}</button>
               {currentStep < steps.length ? (
                 <div className="flex flex-col items-end gap-1">
                   <span className="text-xs text-gray-400 font-medium tracking-wide uppercase">
@@ -2178,16 +2308,18 @@ const AdminHospitalForm = () => {
                 </div>
               ) : (
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={(e) => handleSubmit(e, true)}
                   disabled={loading}
                   className="px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="w-5 h-5" />
                   {loading
                     ? "Saving..."
-                    : `Submit Hospital${doctorList.length > 0 ? ` + ${doctorList.length} Doctor${doctorList.length > 1 ? "s" : ""}` : ""}`}
+                    : "Save & Create Next"}
                 </button>
               )}
+              </div>
             </div>
           </form>
         </div>

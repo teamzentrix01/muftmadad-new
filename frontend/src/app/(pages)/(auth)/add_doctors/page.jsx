@@ -16,6 +16,7 @@ import {
     Shield
 } from 'lucide-react';
 import axios from 'axios';
+import { cleanDirectoryInput, directoryContactError } from '@/lib/directory-validation';
 import { v4 as uuidv4 } from 'uuid';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -117,13 +118,15 @@ const AdminDoctorForm = () => {
 
     const [currentStep, setCurrentStep] = useState(1);
     const [loading, setLoading] = useState(false);
+    const [savedUuid, setSavedUuid] = useState(null);
     const [message, setMessage] = useState({ type: '', text: '' });
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
+    e.target.setCustomValidity('');
         setFormData(prev => ({
             ...prev,
-            [name]: type === 'checkbox' ? checked : value
+            [name]: type === 'checkbox' ? checked : cleanDirectoryInput(name, value)
         }));
     };
 
@@ -149,20 +152,38 @@ const AdminDoctorForm = () => {
         }));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (e, createNext = false) => {
+        e?.preventDefault();
+        if (loading) return;
+        const contactError = directoryContactError(formData);
+        if (contactError) { setMessage({ type: 'error', text: contactError }); setCurrentStep(1); return; }
+        if (!formData.name.trim() || !formData.email.trim()) {
+            setMessage({ type: 'error', text: 'Doctor name and email are required.' });
+            setCurrentStep(1); return;
+        }
         setLoading(true);
         setMessage({ type: '', text: '' });
 
         try {
-            axios.post(`${process.env.NEXT_PUBLIC_API_URL}/doctors`, formData, {
-                headers: { 'Content-Type': 'application/json' },
+            const payload = { ...formData, email: formData.email.trim().toLowerCase(),
+                experience_in_years: Number(formData.experience_in_years || 0),
+                consultation_fee: formData.consultation_fee === '' ? null : Number(formData.consultation_fee),
+                ...Object.fromEntries(Object.entries(localArrayInputs).map(([key, value]) => [key, value.split(',').map(x => x.trim()).filter(Boolean)])),
+            };
+            const token = localStorage.getItem('authToken');
+            const response = await axios({
+                method: savedUuid ? 'put' : 'post',
+                url: `${process.env.NEXT_PUBLIC_API_URL}/doctors${savedUuid ? '/' + savedUuid : ''}`,
+                data: payload,
+                headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
                 withCredentials: true,
             });
+            setSavedUuid(response.data.data.uuid);
+            setFormData(payload);
+            setMessage({ type: 'success', text: 'Doctor profile saved successfully. View it in All Doctors.' });
 
-            setMessage({ type: 'success', text: 'Doctor profile created successfully!' });
-
-            setTimeout(() => {
+            if (createNext) {
+                setSavedUuid(null);
                 setFormData({
                     uuid: uuidv4(),
                     name: '',
@@ -207,8 +228,7 @@ const AdminDoctorForm = () => {
                     publications: ''
                 });
                 setCurrentStep(1);
-                setMessage({ type: '', text: '' });
-            }, 2000);
+            }
 
         } catch (error) {
             setMessage({
@@ -333,6 +353,7 @@ const AdminDoctorForm = () => {
                                         <input
                                             type="email"
                                             name="email"
+                            onBlur={e => { const invalid = e.target.value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e.target.value); e.target.setCustomValidity(invalid ? 'Invalid email. Use name@example.com.' : ''); if (invalid) e.target.reportValidity(); }}
                                             value={formData.email}
                                             onChange={handleChange}
                                             required
@@ -347,9 +368,12 @@ const AdminDoctorForm = () => {
                                         <input
                                             type="text"
                                             name="phone"
+                            inputMode="numeric"
+                            pattern="[6-9][0-9]{9}"
+                            onBlur={e => { const invalid = e.target.value && !/^[6-9][0-9]{9}$/.test(e.target.value); e.target.setCustomValidity(invalid ? 'Invalid mobile number. Enter 10 digits starting with 6, 7, 8 or 9.' : ''); if (invalid) e.target.reportValidity(); }}
                                             value={formData.phone}
                                             onChange={handleChange}
-                                            maxLength={20}
+                                            maxLength={10}
                                             className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                                             placeholder="Phone"
                                         />
@@ -714,7 +738,7 @@ const AdminDoctorForm = () => {
                         )}
 
                         {/* Navigation Buttons */}
-                        <div className="flex justify-between items-end pt-6 border-t-2 border-gray-200 mt-8">
+                        <div className="flex flex-wrap gap-3 justify-between items-end pt-6 border-t-2 border-gray-200 mt-8">
                             <button
                                 type="button"
                                 onClick={() => setCurrentStep(Math.max(1, currentStep - 1))}
@@ -725,6 +749,8 @@ const AdminDoctorForm = () => {
                                 Previous
                             </button>
 
+                            <div className="ml-auto flex flex-wrap items-end justify-end gap-3">
+                            <button type="button" disabled={loading} onClick={(e) => handleSubmit(e)} className="px-6 py-3 bg-emerald-600 text-white rounded-lg font-semibold disabled:opacity-50 flex items-center gap-2"><Save className="w-5 h-5" />{loading ? 'Saving...' : 'Save'}</button>
                             {currentStep < steps.length ? (
                                 <div className="flex flex-col items-end gap-1">
                                     <span className="text-xs text-gray-400 font-medium tracking-wide uppercase">
@@ -741,14 +767,16 @@ const AdminDoctorForm = () => {
                                 </div>
                             ) : (
                                 <button
-                                    type="submit"
+                                    type="button"
+                                    onClick={(e) => handleSubmit(e, true)}
                                     disabled={loading}
                                     className="px-6 py-3 bg-orange-500 text-white rounded-lg font-semibold hover:bg-orange-600 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     <Save className="w-5 h-5" />
-                                    {loading ? 'Creating...' : 'Create Doctor Profile'}
+                                    {loading ? 'Creating...' : 'Save & Create Next'}
                                 </button>
                             )}
+                            </div>
                         </div>
                     </form>
                 </div>

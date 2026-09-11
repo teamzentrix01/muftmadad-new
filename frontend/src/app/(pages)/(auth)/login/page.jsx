@@ -40,13 +40,15 @@ export default function LoginPage() {
       if (response.data?.user) localStorage.setItem('user', JSON.stringify(response.data.user));
 
       setSuccess('Login successful! Redirecting...');
-      setTimeout(() => router.push('/dashboard'), 800);
+      const next = new URLSearchParams(window.location.search).get('next');
+      const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : null;
+      setTimeout(() => router.push(safeNext || (response.data?.user?.isadmin ? '/dashboard' : '/care?view=bookings')), 800);
 
     } catch (err) {
       if (err.response) {
         setError(err.response.data?.message || 'Invalid email or password');
       } else if (err.request) {
-        setError('Cannot connect to server. Make sure backend is running on port 4000.');
+        setError('Cannot connect to the server. Please check your connection and try again.');
       } else {
         setError('Something went wrong. Please try again.');
       }

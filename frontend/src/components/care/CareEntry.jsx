@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import { ArrowRight, Search, IndianRupee, HeartHandshake } from 'lucide-react';
+
+export default function CareEntry() {
+  return <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8"><div className="rounded-3xl bg-gradient-to-r from-blue-600 to-emerald-500 p-6 sm:p-9 text-white shadow-lg"><div className="flex flex-wrap items-center justify-between gap-6"><div><p className="text-xs font-bold uppercase tracking-widest text-blue-100">Your hospital care journey</p><h2 className="mt-2 text-2xl sm:text-3xl font-bold">From confusion to care.</h2><p className="mt-2 max-w-xl text-blue-50">Find a specialist, compare hospital packages and book an appointment with ongoing guidance.</p></div><Link href="/care" className="inline-flex items-center gap-2 rounded-xl bg-white px-6 py-3 font-semibold text-blue-700 shadow-sm">Find care <ArrowRight size={18} /></Link></div><div className="mt-6 flex flex-wrap gap-6 text-sm"><span className="flex items-center gap-2"><Search size={16} /> Find the right doctor</span><span className="flex items-center gap-2"><IndianRupee size={16} /> Know the cost</span><span className="flex items-center gap-2"><HeartHandshake size={16} /> Get support</span><Link href="/care?view=bookings" className="underline underline-offset-4">My appointments & follow-ups</Link></div></div></section>;
+}

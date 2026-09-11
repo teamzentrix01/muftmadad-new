@@ -1,9 +1,11 @@
-require("dotenv").config();
+require("dotenv").config({ path: require('node:path').join(__dirname, '.env') });
 const express = require("express");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
+const { isAllowedOrigin } = require('./config/cors');
+const pool = require('./config/db');
 
 const authRoutes = require("./routes/auth.routes");
 const userReviewRoutes = require("./routes/userReview.routes");
@@ -13,20 +15,20 @@ const doctorsRoutes = require("./routes/doctors.routes");
 const specialitiesRoutes = require('./routes/specialities.routes');
 const blogsRoutes = require('./routes/blogs.routes');
 const citiesRouter = require('./routes/cities');
+const adminWrites = require('./auth/admin.middleware');
 
 const PORT = process.env.PORT || 4000;
 const app = express();
 
 
-console.log(process.env.DATABASE_URL);
 // 1. CORS first
 app.use(cors({
-    origin: process.env.FRONTEND_URL,
+    origin: (origin, callback) => callback(null, isAllowedOrigin(origin)),
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
 }));
-app.options("/{\*path}", cors());
+// Application-level CORS also handles preflight with the configured origin.
 
 // 2. Security and parsing
 app.use(helmet());
@@ -43,17 +45,27 @@ const authLimiter = rateLimit({
 
 
 // 4. Routes
+app.use('/api/cities', adminWrites);
+app.use('/api/admin/cities', adminWrites);
 app.use('/api', citiesRouter);
 app.use("/api/auth", authLimiter, authRoutes);
-app.use("/api/hospitals", hospitalRoutes);
-app.use("/api/doctors", doctorsRoutes);
-app.use("/api/users/", userReviewRoutes);
-app.use("/api/admin/", AddTreatment);
-app.use('/api/specialities', specialitiesRoutes);
-app.use('/api/blogs', blogsRoutes);
+app.use("/api/hospitals", adminWrites, hospitalRoutes);
+app.use("/api/doctors", adminWrites, doctorsRoutes);
+app.use("/api/users/", adminWrites, userReviewRoutes);
+app.use("/api/admin/", adminWrites, AddTreatment);
+app.use('/api/specialities', adminWrites, specialitiesRoutes);
+app.use('/api/blogs', adminWrites, blogsRoutes);
+app.use('/api/care', require('./routes/care.routes').createCareRouter(require('./config/db')));
+app.use('/api/lab', require('./routes/lab.routes').createLabRouter(pool));
 
 // 5. Start
-app.listen(PORT, () => {
-    console.log("Server running on http://localhost:" + PORT);
-    console.log("Database ready");
+pool.query('SELECT 1').then(() => {
+    app.listen(PORT, () => {
+        console.log("Server running on http://localhost:" + PORT);
+        console.log("Database ready");
+    });
+}).catch(async error => {
+    console.error('Database connection failed. Check backend/.env and PostgreSQL:', error.code || error.message);
+    await pool.end();
+    process.exitCode = 1;
 });

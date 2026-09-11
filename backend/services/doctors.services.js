@@ -1,6 +1,19 @@
+const { validateDirectoryContact } = require('../config/directory-validation');
 const pool = require('../config/db');
+const { randomUUID } = require('node:crypto');
+const numericFields = ['experience_in_years', 'consultation_fee', 'average_rating', 'total_reviews', 'total_patients_treated'];
+const normalizeDoctor = data => {
+    const normalized = { ...data };
+    if (typeof normalized.email === 'string') normalized.email = normalized.email.trim().toLowerCase();
+    for (const key of numericFields) {
+        if (normalized[key] === '') normalized[key] = key === 'consultation_fee' ? null : 0;
+    }
+    return normalized;
+};
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+const toPoint = value => !value ? null : typeof value === 'string' ? value : `(${value.x ?? value.lat},${value.y ?? value.lng})`;
 
 const toArray = (val) => Array.isArray(val) ? val : [];
 
@@ -22,7 +35,7 @@ const toJsonb = (val) => {
 
 const textArrayFields = [
     'degrees', 'specialities', 'languages_spoken',
-    'awards_and_recognitions', 'publications',
+    'awards_and_recognitions', 'publications', 'sitting_plan',
 ];
 
 const jsonbFields = [
@@ -33,6 +46,9 @@ const jsonbFields = [
 // ─── CREATE ─────────────────────────────────────────────────────────────────
 
 const createDoctor = async (data) => {
+    validateDirectoryContact(data);
+    data = normalizeDoctor(data);
+    if (!data.name?.trim() || !data.email?.trim()) throw new Error('Doctor name and email are required');
     const {
         uuid, name, email, photo, phone,
         degrees, specialities, experience_in_years,
@@ -62,7 +78,7 @@ const createDoctor = async (data) => {
             availability_schedule, consultation_fee, languages_spoken,
             awards_and_recognitions, publications, average_rating,
             total_reviews, total_patients_treated, meta_title,
-            meta_description, created_at, updated_at, deleted_at
+            meta_description, created_at, updated_at, deleted_at, currently_serving, sitting_plan, location
         ) VALUES (
             $1,  $2,  $3,  $4,  $5,
             $6::text[],  $7::text[],  $8,
@@ -71,20 +87,20 @@ const createDoctor = async (data) => {
             $18::jsonb, $19, $20::text[],
             $21::text[], $22::text[], $23,
             $24, $25, $26,
-            $27, $28, $29, NULL
+            $27, $28, $29, NULL, $30, $31::text[], $32::point
         )
         RETURNING *
     `;
 
     const values = [
-        uuid,                              // $1
+        uuid || randomUUID(),              // $1
         name,                              // $2
         email,                             // $3
         photo || null,                     // $4
         phone || null,                     // $5
         toArray(degrees),                  // $6  text[]
         toArray(specialities),             // $7  text[]
-        experience_in_years || null,       // $8
+        experience_in_years ?? 0,       // $8
         registration_number || null,       // $9
         city || null,                      // $10
         state || null,                     // $11
@@ -95,7 +111,7 @@ const createDoctor = async (data) => {
         is_active ?? true,                 // $16
         is_verified ?? false,              // $17
         toJsonb(availability_schedule),    // $18 jsonb
-        consultation_fee || null,          // $19
+        consultation_fee ?? null,          // $19
         toArray(languages_spoken),         // $20 text[]
         toArray(awards_and_recognitions),  // $21 text[]
         toArray(publications),             // $22 text[]
@@ -105,7 +121,10 @@ const createDoctor = async (data) => {
         meta_title || null,                // $26
         meta_description || null,          // $27
         created_at || new Date(),          // $28
-        updated_at || new Date()           // $29
+        updated_at || new Date(),          // $29
+        data.currently_serving || null,
+        toArray(data.sitting_plan),
+        toPoint(data.location)
     ];
 
     const result = await pool.query(query, values);
@@ -195,15 +214,17 @@ const getDoctorById = async (id) => {
 // ─── UPDATE ──────────────────────────────────────────────────────────────────
 
 const updateDoctor = async (uuid, data) => {
+    validateDirectoryContact(data);
+    data = normalizeDoctor(data);
     const existing = await pool.query(
         'SELECT uuid FROM doctors WHERE uuid = $1 AND deleted_at IS NULL', [uuid]
     );
     if (existing.rows.length === 0) return null;
 
     const allowedFields = [
-        'name', 'email', 'photo', 'phone',
+        'name', 'email', 'photo', 'phone', 'currently_serving', 'sitting_plan',
         'degrees', 'specialities', 'experience_in_years', 'registration_number',
-        'city', 'state', 'country', 'address', 'overview',
+        'city', 'state', 'country', 'address', 'overview', 'location',
         'serving_in_hospitals', 'is_active', 'is_verified',
         'availability_schedule', 'consultation_fee', 'languages_spoken',
         'awards_and_recognitions', 'publications', 'average_rating',
@@ -218,7 +239,10 @@ const updateDoctor = async (uuid, data) => {
     for (const field of allowedFields) {
         if (data[field] !== undefined) {
             const val = data[field];
-            if (textArrayFields.includes(field)) {
+            if (field === 'location') {
+                setClauses.push(`${field} = $${p++}::point`);
+                values.push(toPoint(val));
+            } else if (textArrayFields.includes(field)) {
                 setClauses.push(`${field} = $${p++}::text[]`);
                 values.push(toArray(val));
             } else if (jsonbFields.includes(field)) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { databaseImageSrc } from "@/lib/image-source.mjs";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { use } from "react";
@@ -195,7 +196,7 @@ export default function SpecialityPage({ params }) {
             {speciality.image && (
               <div className="hidden md:block">
                 <img
-                  src={speciality.image}
+                  src={databaseImageSrc(speciality.image)}
                   alt={specialityName}
                   className="w-full h-52 lg:h-60 object-cover rounded-2xl shadow-lg"
                 />
@@ -262,7 +263,7 @@ export default function SpecialityPage({ params }) {
                     {t.treatment_image && (
                       <div className="h-36 sm:h-40 overflow-hidden">
                         <img
-                          src={t.treatment_image}
+                          src={databaseImageSrc(t.treatment_image)}
                           alt={t.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                         />

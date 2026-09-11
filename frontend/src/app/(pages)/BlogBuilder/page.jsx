@@ -1,5 +1,6 @@
 "use client";
 
+import { saveAdminRecord } from "@/lib/admin-save";
 import React, { useState, useEffect } from "react";
 import {
   Trash2,
@@ -834,6 +835,8 @@ const BlockEditor = ({
 
 // Main Blog Builder Component
 const BlogBuilder = () => {
+  const [savedId, setSavedId] = useState(null);
+  const [saving, setSaving] = useState(false);
   const [header, setHeader] = useState({
     title: "How to Rank Your Website on Google in 2026",
     subtitle: "A Complete SEO Guide That Actually Works",
@@ -988,7 +991,10 @@ const BlogBuilder = () => {
     }
   };
 
-  const handlePublish = async (publishNow = true) => {
+  const handlePublish = async (publishNow = true, createNext = false) => {
+    if (saving) return;
+    if (!header.title.trim()) { alert("Blog title is required."); return; }
+    setSaving(true);
     try {
       const blogData = {
         title: header.title,
@@ -1005,13 +1011,13 @@ const BlogBuilder = () => {
         is_published: publishNow, // true = publish, false = save draft
       };
 
-     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/blogs`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(blogData),
-});
-
-      const result = await response.json();
+      const record = await saveAdminRecord('/blogs', '/blogs', savedId, blogData);
+      setSavedId(record.id);
+      if (createNext) {
+        setSavedId(null); setBlocks([]);
+        setHeader(prev => ({ ...prev, title: '', subtitle: '', tag: '', author: '', bgImage: '', readTime: '', publishDate: new Date().toISOString().slice(0, 10) }));
+      }
+      const result = { success: true, data: record };
 
       if (result.success) {
         alert(
@@ -1023,8 +1029,8 @@ const BlogBuilder = () => {
         alert(`❌ Error: ${result.message}`);
       }
     } catch (error) {
-      alert(`❌ Failed to save: ${error.message}`);
-    }
+      alert(error.response?.data?.message || error.message);
+    } finally { setSaving(false); }
   };
 
   const renderBlockPreview = (block, index) => {
@@ -1111,7 +1117,7 @@ const BlogBuilder = () => {
               className={`relative z-10 ${styles.accentBorder ? `border-l-4 ${styles.accentColor} pl-6` : ""} italic`}
             >
               <p className="text-2xl font-serif leading-relaxed mb-4">
-                "{text}"
+                &quot;{text}&quot;
               </p>
               {author && (
                 <cite className="block text-base font-semibold not-italic opacity-75">
@@ -1317,12 +1323,15 @@ const BlogBuilder = () => {
             </button>
 
             <button
+              disabled={saving}
               onClick={() => handlePublish(false)}
               className="col-span-2 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition-all text-sm"
             >
               Save Draft
             </button>
+            <button disabled={saving} onClick={() => handlePublish(false, true)} className="px-4 py-2 rounded-lg bg-emerald-600 text-white disabled:opacity-50">Save &amp; Create Next</button>
             <button
+              disabled={saving}
               onClick={() => handlePublish(true)}
               className="col-span-2 py-3 bg-black text-white font-bold rounded-lg shadow-md hover:bg-gray-800 transition-all mt-2 text-sm"
             >

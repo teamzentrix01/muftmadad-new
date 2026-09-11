@@ -7,7 +7,7 @@ export function middleware(request) {
   const authToken = request.cookies.get('authToken')?.value;
 
   const isProtectedRoute = pathname.startsWith('/dashboard');
-  const isLoginPage = pathname === '/login';
+
 
   // ── Not logged in → block dashboard ──────────────────────────────────────
   if (isProtectedRoute && !authToken) {
@@ -16,13 +16,11 @@ export function middleware(request) {
   }
 
   // ── Already logged in → skip login page ──────────────────────────────────
-  if (isLoginPage && authToken) {
-    return NextResponse.redirect(new URL('/dashboard', request.url));
-  }
+
 
   return NextResponse.next();
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/login'],
+  matcher: ['/dashboard/:path*'],
 };

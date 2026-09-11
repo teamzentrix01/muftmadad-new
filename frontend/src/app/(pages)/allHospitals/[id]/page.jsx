@@ -802,6 +802,7 @@ export default function HospitalDetailPage() {
                   )}
                 </div>
               </div>
+              <a href={`/care?hospital=${hospital.id}`} className="rounded-xl bg-gradient-to-r from-blue-600 to-emerald-500 px-5 py-3 text-sm font-semibold text-white">Find doctors & book</a>
               {hospital.phone && (
                 <a
                   href={`tel:${hospital.phone}`}

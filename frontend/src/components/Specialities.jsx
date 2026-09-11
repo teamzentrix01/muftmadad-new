@@ -1,4 +1,5 @@
 "use client";
+import { databaseImageSrc } from "@/lib/image-source.mjs";
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/languageContext';
@@ -68,7 +69,7 @@ export default function OurSpecialities() {
       {/* Image */}
       <div className="w-full h-28 sm:h-32 overflow-hidden shrink-0">
         <img
-          src={speciality.image}
+          src={databaseImageSrc(speciality.image)}
           alt={lang === 'en' ? speciality.name_en : speciality.name_hi}
           className="w-full h-full object-cover"
         />

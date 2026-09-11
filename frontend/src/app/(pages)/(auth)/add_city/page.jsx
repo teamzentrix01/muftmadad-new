@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import axios from 'axios';
+import { saveAdminRecord } from '@/lib/admin-save';
 import { MapPin, Save, ArrowLeft } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
@@ -16,6 +16,7 @@ export default function AddCityForm() {
         is_active: true
     });
     const [loading, setLoading] = useState(false);
+    const [savedId, setSavedId] = useState(null);
     const [toast, setToast] = useState(null);
     const [errors, setErrors] = useState({});
 
@@ -50,32 +51,19 @@ export default function AddCityForm() {
         }
     };
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e, createNext = false) => {
         e.preventDefault();
+        if (loading) return;
         
         if (!validateForm()) return;
         
         setLoading(true);
         try {
-            const token = localStorage.getItem('authToken');
-            await axios.post(
-                `${API}/admin/cities`, 
-                form, 
-                {
-                    withCredentials: true,
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                }
-            );
-            
+            const record = await saveAdminRecord('/admin/cities', '/admin/cities', savedId, form);
+            setSavedId(record.id);
             setToast({ msg: 'City added successfully!', type: 'success' });
             
-            setTimeout(() => {
-                router.push('/dashboard?page=list-cities');
-            }, 1500);
-            
+            if (createNext) { setSavedId(null); setForm({ name_en: '', name_hi: '', slug: '', display_order: 1, is_active: true }); }
         } catch (error) {
             console.error('Error adding city:', error);
             setToast({ 
@@ -215,7 +203,7 @@ export default function AddCityForm() {
                                 ) : (
                                     <>
                                         <Save className="w-5 h-5" />
-                                        Add City
+                                        Save
                                     </>
                                 )}
                             </button>
@@ -228,6 +216,7 @@ export default function AddCityForm() {
                                 Cancel
                             </button>
                         </div>
+                        <button type="button" disabled={loading} onClick={e => handleSubmit(e, true)} className="mt-3 px-5 py-3 bg-emerald-600 text-white rounded-lg font-semibold disabled:opacity-50">Save &amp; Create Next</button>
                     </form>
                 </div>
             </div>

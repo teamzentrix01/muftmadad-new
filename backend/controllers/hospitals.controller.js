@@ -19,9 +19,9 @@ const createHospitalController = async (req, res) => {
     try {
         const { name, slug, phone, email, address, city, state, country } = req.body;
 
-        if (!name || !slug || !phone || !email || !address || !city || !state || !country) {
+        if (![name, slug, phone, email, address, city].every(value => typeof value === 'string' && value.trim())) {
             return res.status(400).json({
-                message: 'name, slug, phone, email, address, city, state, and country are required'
+                message: 'Hospital name, slug, phone, email, address and city are required'
             });
         }
 
@@ -41,6 +41,7 @@ const createHospitalController = async (req, res) => {
         console.error('PG Hint  :', error.hint);
         console.error('Stack   :', error.stack);
 
+        if (error.status === 400) return res.status(400).json({ message: error.message });
         if (error.code === '23505') {
             return res.status(409).json({
                 message: 'A hospital with this slug or email already exists',
@@ -137,6 +138,7 @@ const updateHospitalController = async (req, res) => {
             data: hospital
         });
     } catch (error) {
+        if (error.status === 400) return res.status(400).json({ message: error.message });
         console.error('Update hospital error:', error);
         return res.status(500).json({ message: 'Failed to update hospital' });
     }

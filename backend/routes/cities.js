@@ -13,8 +13,6 @@ router.get('/cities', async (req, res) => {
              ORDER BY display_order ASC, name_en ASC`
         );
         
-        console.log('Cities from DB:', result.rows);
-        
         res.json({
             success: true,
             data: result.rows

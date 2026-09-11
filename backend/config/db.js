@@ -44,17 +44,17 @@ require("dotenv").config({ path: __dirname + "/../.env" });
 
 const { Pool } = require("pg");
 
-console.log("ENV DEBUG:", {
-  user: process.env.DB_USER,
-  db: process.env.DB_NAME
-});
-
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: process.env.DB_PORT,
+  connectionTimeoutMillis: 10000,
+});
+
+pool.on('error', error => {
+  console.error('Idle database connection failed:', error.code || error.message);
 });
 
 module.exports = pool;

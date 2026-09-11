@@ -68,8 +68,8 @@ exports.signupService = async ({ name, email, phone, password }) => {
 
         // 5️⃣ Insert user into database
         const result = await pool.query(
-            `INSERT INTO users (name, email, phone, hash_password) 
-             VALUES ($1, $2, $3, $4) 
+            `INSERT INTO users (name, email, phone, hash_password, isadmin)
+             VALUES ($1, $2, $3, $4, false)
              RETURNING id, uuid, name, email, phone, created_at`,
             [
                 name.trim(), 
@@ -132,7 +132,7 @@ exports.loginService = async ({ email, password, rememberMe = false }) => {
 
         // 2️⃣ Find user by email
         const result = await pool.query(
-            "SELECT id, uuid, name, email, phone, hash_password, created_at FROM users WHERE email = $1",
+            "SELECT id, uuid, name, email, phone, hash_password, created_at, isadmin FROM users WHERE email = $1",
             [email.toLowerCase().trim()]
         );
 
@@ -177,6 +177,7 @@ exports.loginService = async ({ email, password, rememberMe = false }) => {
             token,
             expiresIn,
             user: {
+                isadmin: !!user.isadmin,
                 id: user.id,
                 uuid: user.uuid,
                 name: user.name,
@@ -207,7 +208,7 @@ exports.verifyTokenService = async (token) => {
 
         // Get user from database
         const result = await pool.query(
-            "SELECT id, uuid, name, email, phone, created_at FROM users WHERE id = $1",
+            "SELECT id, uuid, name, email, phone, created_at, isadmin FROM users WHERE id = $1",
             [decoded.userId]
         );
 
