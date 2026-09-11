@@ -7,7 +7,10 @@ function isAllowedOrigin(origin) {
     if (process.env.NODE_ENV === 'production') return false;
     try {
         const url = new URL(origin);
-        return ['http:', 'https:'].includes(url.protocol) && localHosts.has(url.hostname);
+        if (!['http:', 'https:'].includes(url.protocol)) return false;
+        if (localHosts.has(url.hostname)) return true;
+        if (/^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(url.hostname)) return true;
+        return false;
     } catch {
         return false;
     }

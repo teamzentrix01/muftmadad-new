@@ -3,7 +3,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 const CityContext = createContext();
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://www.muftmadad.com/api';
+const PRIMARY_API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4002/api').replace(/\/+$/, '');
+const BACKUP_API = 'https://www.muftmadad.com/api';
+
+const DEFAULT_CITIES = [
+    { id: 1, name_en: 'Moradabad', name_hi: 'मुरादाबाद', slug: 'moradabad', is_active: true, display_order: 1 },
+    { id: 2, name_en: 'Delhi', name_hi: 'दिल्ली', slug: 'delhi', is_active: true, display_order: 2 },
+    { id: 3, name_en: 'Noida', name_hi: 'नोएडा', slug: 'noida', is_active: true, display_order: 3 },
+];
 
 export function CityProvider({ children }) {
     const [cities, setCities] = useState([]);
@@ -14,15 +21,12 @@ export function CityProvider({ children }) {
         setLoading(true);
         setError(null);
         try {
-            console.log('Fetching cities from:', `${API}/cities`);
-            const res = await axios.get(`${API}/cities`, {
+            const res = await axios.get(`${PRIMARY_API}/cities`, {
                 timeout: 5000,
                 headers: {
                     'Content-Type': 'application/json',
                 }
             });
-            
-            console.log('API Response:', res.data);
             
             let activeCities = [];
             if (res.data?.data) {
@@ -36,28 +40,32 @@ export function CityProvider({ children }) {
                 .filter(city => city.is_active === true || city.is_active === 'true')
                 .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
             
-            console.log('Processed cities:', activeCities);
-            setCities(activeCities);
-        } catch (error) {
-            console.error('Failed to fetch cities:', error);
-            setError(error.message);
-            
-            // Fallback: Try to fetch from backup URL if main fails
-            try {
-               console.log('Trying fallback URL...');
-
-const fallbackRes = await axios.get(
-  `${process.env.NEXT_PUBLIC_API_URL}/cities`,
-  {
-    timeout: 5000
-  }
-);
-                const fallbackCities = fallbackRes.data?.data || fallbackRes.data || [];
-                setCities(fallbackCities.filter(c => c.is_active));
-            } catch (fallbackError) {
-                console.error('Fallback also failed:', fallbackError);
-                setCities([]);
+            if (activeCities.length > 0) {
+                setCities(activeCities);
+                return;
             }
+            setCities(DEFAULT_CITIES);
+        } catch (primaryError) {
+            console.warn('Primary cities fetch failed:', primaryError.message);
+            setError(primaryError.message);
+            
+            // Fallback: only try backup URL if primary is different from backup
+            if (PRIMARY_API !== BACKUP_API) {
+                try {
+                    const fallbackRes = await axios.get(`${BACKUP_API}/cities`, { timeout: 4000 });
+                    const fallbackCities = fallbackRes.data?.data || fallbackRes.data || [];
+                    const activeFallback = fallbackCities
+                        .filter(c => c.is_active === true || c.is_active === 'true')
+                        .sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+                    if (activeFallback.length > 0) {
+                        setCities(activeFallback);
+                        return;
+                    }
+                } catch (fallbackError) {
+                    console.warn('Fallback also failed:', fallbackError.message);
+                }
+            }
+            setCities(DEFAULT_CITIES);
         } finally {
             setLoading(false);
         }
