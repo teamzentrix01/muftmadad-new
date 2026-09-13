@@ -106,7 +106,7 @@ export default function CareJourney() {
         <h2 className="text-2xl font-bold">What can we help you with?</h2><p className="mt-2 text-sm text-slate-500">Enter your concern or choose a speciality and city.</p>
         {query.hospital && <p className="mt-3 text-sm text-blue-700">Hospital: {catalog.hospitals.find(h => String(h.id) === String(query.hospital))?.name || 'Selected hospital'} <button className="ml-2 underline" onClick={() => setQuery(q => ({ ...q, hospital: '' }))}>Search all hospitals</button></p>}
         <form onSubmit={search} className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Field label="Concern or doctor"><input className={input} placeholder="e.g. knee pain, orthopaedics" maxLength={120} value={query.q} onChange={e => setQuery({ ...query, q: e.target.value })} /></Field>
+          <Field label="Concern with doctor"><input className={input} placeholder="e.g. knee pain, orthopaedics" maxLength={120} value={query.q} onChange={e => setQuery({ ...query, q: e.target.value })} /></Field>
           <Field label="Speciality"><select className={input} value={query.speciality} onChange={e => setQuery({ ...query, speciality: e.target.value })}><option value="">All specialities</option>{catalog.specialities.map(s => <option key={s.id} value={s.id}>{s.name_en || s.name_hi}</option>)}</select></Field>
           <Field label="City"><select className={input} value={query.city} onChange={e => setQuery({ ...query, city: e.target.value })}><option value="">All cities</option>{cities.map(c => <option key={c}>{c}</option>)}</select></Field>
           <button className={`${primary} self-end`} disabled={busy}><Search size={17} /> {busy ? 'Searching…' : 'Find specialists'}</button>

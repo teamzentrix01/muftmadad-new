@@ -6,6 +6,7 @@ const {
     updateBlogService,
     deleteBlogService,
 } = require('../services/blogs.services');
+const recycleBinService = require('../services/recycleBin.service');
 
 const createBlog = async (req, res) => {
     try {
@@ -21,7 +22,6 @@ const createBlog = async (req, res) => {
 
 const getAllBlogs = async (req, res) => {
     try {
-        // ?all=true returns drafts too (for admin)
         const publishedOnly = req.query.all !== 'true';
         const result = await getAllBlogsService(publishedOnly);
         return res.status(200).json(result);
@@ -59,8 +59,27 @@ const updateBlog = async (req, res) => {
 
 const deleteBlog = async (req, res) => {
     try {
+        const existing = await getBlogByIdService(req.params.id);
+        if (!existing) {
+            return res.status(404).json({ success: false, message: 'Blog not found' });
+        }
+
+        // Archive into recycle bin with Deleter audit info
+        await recycleBinService.moveToBin({
+            entityType: 'blog',
+            entityId: existing.id,
+            entityName: existing.title || 'Blog Post',
+            sourceDashboard: 'Blog Dashboard',
+            originalData: existing,
+            deletedByUser: req.adminUser || req.user
+        });
+
         const result = await deleteBlogService(req.params.id);
-        return res.status(200).json(result);
+        return res.status(200).json({
+            success: true,
+            message: 'Blog moved to recycle bin successfully',
+            data: result
+        });
     } catch (error) {
         return res.status(404).json({ success: false, message: error.message });
     }

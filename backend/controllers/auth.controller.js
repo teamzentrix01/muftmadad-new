@@ -3,8 +3,8 @@ const authService = require("../auth/auth.service");
 // Signup
 exports.signupController = async (req, res) => {
     try {
-        const { name, email, phone, password } = req.body;
-        const result = await authService.signupService({ name, email, phone, password });
+        const { name, email, phone, password, role, account_type, staff_role, post, department, laboratory_id, collector_id } = req.body;
+        const result = await authService.signupService({ name, email, phone, password, role, account_type, staff_role, post, department, laboratory_id, collector_id });
 
         res.cookie('authToken', result.token, {
             httpOnly: true,
@@ -31,8 +31,8 @@ exports.signupController = async (req, res) => {
 // Login
 exports.loginController = async (req, res) => {
     try {
-        const { email, password, rememberMe } = req.body;
-        const result = await authService.loginService({ email, password, rememberMe });
+        const { email, identifier, password, rememberMe } = req.body;
+        const result = await authService.loginService({ email: email || identifier, identifier, password, rememberMe });
 
         const maxAge = rememberMe
             ? 30 * 24 * 60 * 60 * 1000

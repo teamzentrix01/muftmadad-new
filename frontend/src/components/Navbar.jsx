@@ -1,6 +1,6 @@
 "use client";
 import React from 'react';
-import { Phone, MapPin, ChevronDown } from 'lucide-react';
+import { Phone, MapPin, ChevronDown, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '@/context/languageContext';
 import { useCities } from '@/context/cityContext';
@@ -126,9 +126,10 @@ const Navbar = () => {
                         </button>
                     </a>
 
-                    {/* Select City */}
                     <Link href="/care" className="rounded-lg bg-gradient-to-r from-blue-600 to-emerald-500 px-3 py-2 text-xs sm:text-sm font-semibold text-white whitespace-nowrap">Find Care</Link>
                     <Link href="/labs" className="rounded-lg border border-blue-200 px-3 py-2 text-xs sm:text-sm font-semibold text-blue-700 whitespace-nowrap">Lab Tests</Link>
+
+                    {/* Select City */}
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => cities.length > 0 && setIsCityDropdownOpen(!isCityDropdownOpen)}
@@ -187,6 +188,15 @@ const Navbar = () => {
                             </div>
                         )}
                     </div>
+
+                    {/* Sign In / Up Button */}
+                    <Link
+                        href="/signup"
+                        className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white transition-all font-semibold text-xs sm:text-sm whitespace-nowrap shadow-xs hover:shadow active:scale-95"
+                    >
+                        <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" />
+                        <span>Sign In / Up</span>
+                    </Link>
                 </div>
             </div>
         </header>

@@ -2,51 +2,115 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import axios from 'axios';
 
 export default function LoginPage() {
-  const [email, setEmail]               = useState('');
-  const [password, setPassword]         = useState('');
+  const [loginMethod, setLoginMethod] = useState('phone'); // 'phone' | 'email'
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading]       = useState(false);
-  const [error, setError]               = useState('');
-  const [success, setSuccess]           = useState('');
-  const [emailError, setEmailError]     = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [identifierError, setIdentifierError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const router = useRouter();
 
-  const validateEmail    = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+  const validateEmail = (v) => {
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test((v || '').trim());
+  };
+
   const validatePassword = (v) => v.length >= 6;
+
+  const handlePhoneChange = (e) => {
+    // Only accept digits, max 10 digits
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+    setPhone(digits);
+    setError('');
+
+    if (digits.length > 0 && !/^[6-9]/.test(digits)) {
+      setIdentifierError('Invalid number: Mobile number must start with 6, 7, 8, or 9');
+    } else {
+      setIdentifierError('');
+    }
+  };
+
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    setIdentifierError('');
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); setSuccess(''); setEmailError(''); setPasswordError('');
+    setError(''); setSuccess(''); setIdentifierError(''); setPasswordError('');
 
     let hasError = false;
-    if (!validateEmail(email))       { setEmailError('Please enter a valid email address'); hasError = true; }
-    if (!validatePassword(password)) { setPasswordError('Password must be at least 6 characters'); hasError = true; }
+
+    if (loginMethod === 'phone') {
+      if (!phone) {
+        setIdentifierError('Please enter your 10-digit mobile number');
+        hasError = true;
+      } else if (!/^[6-9]/.test(phone)) {
+        setIdentifierError('Invalid number: Mobile number must start with 6, 7, 8, or 9');
+        hasError = true;
+      } else if (phone.length !== 10) {
+        setIdentifierError('Mobile number must be exactly 10 digits');
+        hasError = true;
+      }
+    } else {
+      if (!email.trim()) {
+        setIdentifierError('Please enter your email address');
+        hasError = true;
+      } else if (!validateEmail(email)) {
+        setIdentifierError('Please enter a valid email format (e.g. name@example.com)');
+        hasError = true;
+      }
+    }
+
+    if (!validatePassword(password)) {
+      setPasswordError('Password must be at least 6 characters');
+      hasError = true;
+    }
+
     if (hasError) return;
+
+    const identifierVal = loginMethod === 'phone' ? phone : email.trim().toLowerCase();
 
     setIsLoading(true);
     try {
-     const response = await axios.post(
-    `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
-    { email, password },
-    { withCredentials: true, timeout: 10000 }
-);
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+        { email: identifierVal, identifier: identifierVal, password },
+        { withCredentials: true, timeout: 10000 }
+      );
 
       const token = response.data?.token;
       if (token) localStorage.setItem('authToken', token);
       if (response.data?.user) localStorage.setItem('user', JSON.stringify(response.data.user));
 
+      const user = response.data?.user;
       setSuccess('Login successful! Redirecting...');
       const next = new URLSearchParams(window.location.search).get('next');
       const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : null;
-      setTimeout(() => router.push(safeNext || (response.data?.user?.isadmin ? '/dashboard' : '/care?view=bookings')), 800);
+
+      let destination = '/labs';
+      if (user?.isadmin) {
+        destination = safeNext || '/dashboard';
+      } else if (user?.is_staff || user?.membership?.laboratory_id || user?.membership?.collector_id) {
+        destination = (safeNext && safeNext !== '/dashboard') ? safeNext : '/labs/workspace';
+      } else {
+        destination = (safeNext && safeNext !== '/dashboard') ? safeNext : '/labs';
+      }
+
+      setTimeout(() => router.push(destination), 800);
 
     } catch (err) {
       if (err.response) {
-        setError(err.response.data?.message || 'Invalid email or password');
+        setError(err.response.data?.message || 'Invalid mobile number or password');
       } else if (err.request) {
         setError('Cannot connect to the server. Please check your connection and try again.');
       } else {
@@ -264,7 +328,7 @@ export default function LoginPage() {
           left: 14px;
           transform: translateY(-50%);
           pointer-events: none;
-          color: var(--muted);
+          color: #94a3b8;
           transition: color 0.2s;
         }
         .lp-input-icon svg { width: 16px; height: 16px; display: block; }
@@ -272,28 +336,28 @@ export default function LoginPage() {
         .lp-input {
           width: 100%;
           padding: 13px 44px 13px 42px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.1);
+          background: #ffffff;
+          border: 1px solid #d1d5db;
           border-radius: 10px;
-          color: var(--text);
+          color: #334155;
           font-family: 'DM Sans', sans-serif;
           font-size: 0.9rem;
+          font-weight: 400;
           outline: none;
           transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
         }
-        .lp-input::placeholder { color: rgba(255,255,255,0.2); }
 
         .lp-input:focus {
-          border-color: rgba(201,168,76,0.5);
-          background: rgba(201,168,76,0.04);
-          box-shadow: 0 0 0 3px rgba(201,168,76,0.08);
+          border-color: #3b82f6;
+          background: #ffffff;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
         .lp-input:focus + .lp-input-icon,
-        .lp-input-wrap:focus-within .lp-input-icon { color: var(--gold); }
+        .lp-input-wrap:focus-within .lp-input-icon { color: #3b82f6; }
 
         .lp-input.error {
-          border-color: rgba(224,92,92,0.5);
-          box-shadow: 0 0 0 3px rgba(224,92,92,0.08);
+          border-color: #ef4444;
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
         }
 
         .lp-eye {
@@ -304,13 +368,13 @@ export default function LoginPage() {
           background: none;
           border: none;
           cursor: pointer;
-          color: var(--muted);
+          color: #94a3b8;
           padding: 4px;
           transition: color 0.2s;
           display: flex;
           align-items: center;
         }
-        .lp-eye:hover { color: var(--gold); }
+        .lp-eye:hover { color: #64748b; }
         .lp-eye svg { width: 16px; height: 16px; }
 
         .lp-field-err {
@@ -322,6 +386,130 @@ export default function LoginPage() {
           color: var(--danger);
         }
         .lp-field-err svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+        /* ── Login Method Tabs ── */
+        .lp-tab-group {
+          display: flex;
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 12px;
+          padding: 4px;
+          gap: 4px;
+          margin-bottom: 20px;
+        }
+        .lp-tab-btn {
+          flex: 1;
+          padding: 9px 12px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          border-radius: 8px;
+          border: 1px solid transparent;
+          background: transparent;
+          color: var(--muted);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          transition: all 0.2s;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .lp-tab-btn:hover {
+          color: var(--text);
+          background: rgba(255, 255, 255, 0.03);
+        }
+        .lp-tab-btn.active {
+          background: rgba(79, 142, 247, 0.16);
+          color: var(--gold-lt);
+          border-color: rgba(79, 142, 247, 0.35);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+        }
+
+        /* ── Phone input with +91 (Pure white block matching email & password) ── */
+        .lp-phone-wrap {
+          display: flex;
+          align-items: center;
+          background: #ffffff;
+          border: 1px solid #d1d5db;
+          border-radius: 10px;
+          overflow: hidden;
+          transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+        }
+        .lp-phone-wrap:focus-within {
+          border-color: #3b82f6;
+          background: #ffffff;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        .lp-phone-wrap.error {
+          border-color: #ef4444;
+          box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+        }
+        .lp-phone-badge {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 13px 12px;
+          background: #ffffff;
+          border-right: 1px solid #e2e8f0;
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: #64748b;
+          user-select: none;
+        }
+        .lp-phone-input {
+          flex: 1;
+          background: #ffffff;
+          border: none;
+          outline: none;
+          padding: 13px 14px;
+          color: #334155;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.95rem;
+          font-weight: 400;
+        }
+        .lp-phone-counter {
+          padding: 0 12px;
+          font-size: 0.72rem;
+          font-weight: 400;
+          color: #94a3b8;
+          user-select: none;
+          background: #ffffff;
+        }
+
+        /* ── Soft, Light Placeholder for Email, Phone & Password ── */
+        .lp-input::-webkit-input-placeholder,
+        .lp-phone-input::-webkit-input-placeholder {
+          color: #94a3b8 !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 400 !important;
+          opacity: 1 !important;
+        }
+        .lp-input::-moz-placeholder,
+        .lp-phone-input::-moz-placeholder {
+          color: #94a3b8 !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 400 !important;
+          opacity: 1 !important;
+        }
+        .lp-input::placeholder,
+        .lp-phone-input::placeholder {
+          color: #94a3b8 !important;
+          font-family: 'DM Sans', sans-serif !important;
+          font-weight: 400 !important;
+          opacity: 1 !important;
+        }
+
+        /* Autofill styling to keep clean white background & soft slate text */
+        .lp-phone-input:-webkit-autofill,
+        .lp-phone-input:-webkit-autofill:hover,
+        .lp-phone-input:-webkit-autofill:focus,
+        .lp-input:-webkit-autofill,
+        .lp-input:-webkit-autofill:hover,
+        .lp-input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0 1000px #ffffff inset !important;
+          -webkit-text-fill-color: #334155 !important;
+          caret-color: #334155;
+        }
 
         /* ── Submit button ── */
         .lp-btn {
@@ -407,8 +595,19 @@ export default function LoginPage() {
                   d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h1 className="lp-title"><span>Welcome Back</span></h1>
-            <p className="lp-subtitle">Muft Madad &nbsp;·&nbsp; Admin Portal</p>
+            <h1 className="lp-title"><span>Sign In</span></h1>
+            <p className="lp-subtitle">Patient &amp; Staff Portal</p>
+            <div className="flex items-center justify-center gap-2 mt-3 flex-wrap">
+              <span className="px-2.5 py-1 text-[11px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/25 rounded-full">
+                👤 Patient
+              </span>
+              <span className="px-2.5 py-1 text-[11px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/25 rounded-full">
+                🧪 Lab Technician
+              </span>
+              <span className="px-2.5 py-1 text-[11px] font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/25 rounded-full">
+                🛵 Sample Collector
+              </span>
+            </div>
           </div>
 
           {/* Card */}
@@ -434,35 +633,101 @@ export default function LoginPage() {
                 </div>
               )}
 
-              {/* Email */}
-              <div className="lp-field">
-                <label className="lp-label">Email Address</label>
-                <div className="lp-input-wrap">
-                  <span className="lp-input-icon">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
-                    </svg>
-                  </span>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={e => { setEmail(e.target.value); setEmailError(''); setError(''); }}
-                    onBlur={() => setEmailError(email && !validateEmail(email) ? 'Please enter a valid email address' : '')}
-                    placeholder="admin@example.com"
-                    className={`lp-input${emailError ? ' error' : ''}`}
-                  />
-                </div>
-                {emailError && (
-                  <div className="lp-field-err">
-                    <svg fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    {emailError}
-                  </div>
-                )}
+              {/* Login Method Tabs */}
+              <div className="lp-tab-group">
+                <button
+                  type="button"
+                  onClick={() => { setLoginMethod('phone'); setIdentifierError(''); setError(''); }}
+                  className={`lp-tab-btn ${loginMethod === 'phone' ? 'active' : ''}`}
+                >
+                  <span>📱</span>
+                  <span>Mobile Number</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLoginMethod('email'); setIdentifierError(''); setError(''); }}
+                  className={`lp-tab-btn ${loginMethod === 'email' ? 'active' : ''}`}
+                >
+                  <span>✉️</span>
+                  <span>Email Address</span>
+                </button>
               </div>
+
+              {/* Identifier Field: Phone or Email */}
+              {loginMethod === 'phone' ? (
+                <div className="lp-field">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="lp-label" style={{ marginBottom: 0 }}>Mobile Number</label>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--muted)' }}></span>
+                  </div>
+                  <div className={`lp-phone-wrap${identifierError ? ' error' : ''}`}>
+                    <div className="lp-phone-badge">
+                      <span>🇮🇳</span>
+                      <span>+91</span>
+                    </div>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      required
+                      value={phone}
+                      onChange={handlePhoneChange}
+                      onBlur={() => {
+                        if (phone && (!/^[6-9]/.test(phone) || phone.length !== 10)) {
+                          setIdentifierError(!/^[6-9]/.test(phone) ? 'Invalid Number: Fill the valid number' : 'Mobile number must be exactly 10 digits');
+                        }
+                      }}
+                      placeholder="9876543210"
+                      className="lp-phone-input"
+                    />
+                    <span className="lp-phone-counter">{phone.length}/10</span>
+                  </div>
+                  {identifierError && (
+                    <div className="lp-field-err">
+                      <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {identifierError}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="lp-field">
+                  <label className="lp-label">Registered Email Address</label>
+                  <div className="lp-input-wrap">
+                    <span className="lp-input-icon">
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                      </svg>
+                    </span>
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={handleEmailChange}
+                      onBlur={() => {
+                        if (email && !validateEmail(email)) {
+                          setIdentifierError('Please enter a valid email format (e.g. name@example.com)');
+                        }
+                      }}
+                      placeholder="name@example.com"
+                      className={`lp-input${identifierError ? ' error' : ''}`}
+                    />
+                  </div>
+                  <span className="text-[11px] text-slate-400 mt-1 block">
+                    Enter your registered email address.
+                  </span>
+                  {identifierError && (
+                    <div className="lp-field-err">
+                      <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      {identifierError}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Password */}
               <div className="lp-field">
@@ -480,7 +745,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={e => { setPassword(e.target.value); setPasswordError(''); setError(''); }}
                     onBlur={() => setPasswordError(password && !validatePassword(password) ? 'Password must be at least 6 characters' : '')}
-                    placeholder="Enter your password"
+                    placeholder="Enter your registered password"
                     className={`lp-input${passwordError ? ' error' : ''}`}
                   />
                   <button type="button" className="lp-eye" onClick={() => setShowPassword(!showPassword)}>
@@ -520,17 +785,26 @@ export default function LoginPage() {
                   </>
                 ) : (
                   <>
-                    Sign In
+                    Sign In with Email / Phone
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>
                   </>
                 )}
               </button>
+
+              <div className="mt-5 text-center border-t border-white/10 pt-4">
+                <p className="text-xs text-slate-400 mb-2">
+                  Don't have an account yet?
+                </p>
+                <Link href="/signup" className="font-semibold text-blue-400 hover:text-blue-300 hover:underline transition-colors">
+                  Create a New Account (Patient or Staff) →
+                </Link>
+              </div>
             </form>
           </div>
 
-          <p className="lp-footer">Only authorized admins can access the dashboard.</p>
+          <p className="lp-footer">Muft Madad Healthcare &amp; Diagnostics Portal</p>
         </div>
       </div>
     </>

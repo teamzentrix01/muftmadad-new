@@ -6,7 +6,6 @@ import { saveAdminRecord } from '@/lib/admin-save';
 import { cleanDirectoryInput } from '@/lib/directory-validation';
 import { User, MapPin, Calendar, Star, FileText, Heart, Send, CheckCircle, AlertCircle } from 'lucide-react';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 
 const API = process.env.NEXT_PUBLIC_API_URL;
 
@@ -103,7 +102,6 @@ const ReviewForm = () => {
                         )}
                     </div>
                 </div>
-                <Footer />
             </>
         );
     }
@@ -306,7 +304,6 @@ const ReviewForm = () => {
                     ))}
                 </div>
             </div>
-            <Footer />
         </div>
     );
 };

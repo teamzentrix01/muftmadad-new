@@ -1,4 +1,5 @@
 const doctorsService = require('../services/doctors.services');
+const recycleBinService = require('../services/recycleBin.service');
 
 const createDoctor = async (req, res) => {
     try {
@@ -110,7 +111,30 @@ const updateDoctor = async (req, res) => {
 
 const deleteDoctor = async (req, res) => {
     try {
-        const result = await doctorsService.deleteDoctor(req.params.uuid);
+        const reference = req.params.uuid;
+        const numericId = /^[1-9]\d*$/.test(reference) && Number.isSafeInteger(Number(reference));
+        const existingDoctor = numericId
+            ? await doctorsService.getDoctorById(reference)
+            : await doctorsService.getDoctorByUuid(reference);
+
+        if (!existingDoctor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
+        // Archive into recycle bin with Deleter audit info
+        await recycleBinService.moveToBin({
+            entityType: 'doctor',
+            entityId: existingDoctor.id,
+            entityName: existingDoctor.name,
+            sourceDashboard: 'Doctor Dashboard',
+            originalData: existingDoctor,
+            deletedByUser: req.adminUser || req.user
+        });
+
+        const result = await doctorsService.deleteDoctor(existingDoctor.uuid);
         if (!result) {
             return res.status(404).json({
                 success: false,
@@ -119,7 +143,7 @@ const deleteDoctor = async (req, res) => {
         }
         return res.status(200).json({
             success: true,
-            message: 'Doctor deleted successfully'
+            message: 'Doctor moved to recycle bin successfully'
         });
     } catch (error) {
         return res.status(500).json({

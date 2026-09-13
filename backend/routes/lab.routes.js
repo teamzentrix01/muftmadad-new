@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const text = (v, max = 500) => { if (typeof v !== 'string' || !v.trim() || v.trim().length > max) fail(400, 'Enter all required details within the length limit.'); return v.trim(); };
 const id = v => { if (!/^\d+$/.test(String(v)) || !Number.isSafeInteger(Number(v)) || Number(v)<1) fail(400,'Invalid selection.'); return Number(v); };
@@ -9,7 +10,7 @@ const transitions = { confirmed:['assigned','cancelled'], assigned:['collected',
 const masters = {
  laboratories: { table:'lab_laboratories', fields:['name','phone','address'] },
  areas: { table:'lab_areas', fields:['name','pincode','collection_fee'] },
- tests: { table:'lab_tests', fields:['name','kind','price','sample_type','preparation','includes','turnaround_hours'] },
+ tests: { table:'lab_tests', fields:['name','kind','price','sample_type','preparation','includes','turnaround_hours','home_collection'] },
  collectors: { table:'lab_collectors', fields:['name','phone','area_id'] },
 };
 function validateMaster(kind, body) {
@@ -19,6 +20,7 @@ function validateMaster(kind, body) {
   if(['area_id','turnaround_hours'].includes(key)) return id(body[key]);
   if(['preparation','includes'].includes(key)) return body[key] ? text(body[key],2000) : '';
   if(key==='kind' && !['test','package'].includes(body[key])) fail(400,'Choose test or package.');
+  if(key==='home_collection') return body[key] === undefined ? true : Boolean(body[key]);
   const value=text(body[key]);
   if(key==='phone' && !/^\+?[0-9 ()-]{8,20}$/.test(value)) fail(400,'Enter a valid phone number.');
   if(key==='pincode' && !/^\d{6}$/.test(value)) fail(400,'Enter a six digit pincode.');
@@ -78,7 +80,7 @@ function createLabRouter(db) {
  }));
  router.get('/admin/masters',admin,route(async(req,res)=>{
   const result={};for(const [key,c] of Object.entries(masters)) result[key]=(await db.query(`SELECT * FROM ${c.table} ORDER BY name`)).rows;
-  result.memberships=(await db.query('SELECT m.*,u.name FROM lab_memberships m JOIN users u ON u.id=m.user_id ORDER BY u.name')).rows;
+  result.memberships=(await db.query('SELECT m.*,u.name,u.email,u.phone FROM lab_memberships m JOIN users u ON u.id=m.user_id ORDER BY u.name')).rows;
   result.users=(await db.query('SELECT id,name,email FROM users ORDER BY name LIMIT 1000')).rows;
   res.json(result);
  }));
@@ -94,9 +96,41 @@ function createLabRouter(db) {
   if(!r.rowCount)fail(404,'Record not found.');res.json(r.rows[0]);
  }));
  router.post('/admin/access',admin,route(async(req,res)=>{
-  const user=id(req.body.user_id),lab=req.body.laboratory_id?id(req.body.laboratory_id):null,collector=req.body.collector_id?id(req.body.collector_id):null;
-  if(!!lab===!!collector)fail(400,'Select exactly one lab or collector role.');
-  await db.query('INSERT INTO lab_memberships(user_id,laboratory_id,collector_id) VALUES($1,$2,$3) ON CONFLICT(user_id) DO UPDATE SET laboratory_id=$2,collector_id=$3',[user,lab,collector]);res.json({success:true});
+  let userId;
+  if (req.body.create_user) {
+    const name = text(req.body.name, 100);
+    const email = String(req.body.email || '').toLowerCase().trim();
+    const phone = String(req.body.phone || '').replace(/\s/g, '');
+    const password = String(req.body.password || '');
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fail(400, 'Enter a valid email address.');
+    if (!phone || phone.length < 8) fail(400, 'Enter a valid phone number.');
+    if (!password || password.length < 6) fail(400, 'Password must be at least 6 characters.');
+    
+    const existingUser = (await db.query('SELECT id FROM users WHERE email = $1', [email])).rows[0];
+    const hash = await bcrypt.hash(password, 10);
+    if (existingUser) {
+      userId = existingUser.id;
+      await db.query('UPDATE users SET name = $1, phone = $2, hash_password = $3, updated_at = NOW() WHERE id = $4', [name, phone, hash, userId]);
+    } else {
+      const inserted = (await db.query(
+        'INSERT INTO users (name, email, phone, hash_password, isadmin) VALUES ($1, $2, $3, $4, false) RETURNING id',
+        [name, email, phone, hash]
+      )).rows[0];
+      userId = inserted.id;
+    }
+  } else {
+    userId = id(req.body.user_id);
+  }
+
+  const lab = req.body.laboratory_id ? id(req.body.laboratory_id) : null;
+  const collector = req.body.collector_id ? id(req.body.collector_id) : null;
+  if (!!lab === !!collector) fail(400, 'Select exactly one lab or collector role.');
+
+  await db.query(
+    'INSERT INTO lab_memberships(user_id, laboratory_id, collector_id) VALUES($1, $2, $3) ON CONFLICT(user_id) DO UPDATE SET laboratory_id = $2, collector_id = $3',
+    [userId, lab, collector]
+  );
+  res.json({ success: true, user_id: userId });
  }));
  router.delete('/admin/access/:id',admin,route(async(req,res)=>{await db.query('DELETE FROM lab_memberships WHERE user_id=$1',[id(req.params.id)]);res.json({success:true});}));
  router.post('/bookings',route(async(req,res)=>{
@@ -113,6 +147,8 @@ function createLabRouter(db) {
    const a=(await c.query('SELECT * FROM lab_areas WHERE id=$1 AND is_active FOR SHARE',[area])).rows[0];if(!a)fail(409,'This area is unavailable.');
    const tests=(await c.query('SELECT * FROM lab_tests WHERE id=ANY($1::bigint[]) AND is_active FOR SHARE',[ids])).rows;
    if(tests.length!==ids.length)fail(409,'A selected test is unavailable. Refresh and select again.');
+   const noHome=tests.find(t=>t.home_collection===false);
+   if(noHome)fail(400,`Yeh service home available nahi hai "${noHome.name}" ke liye. Kripya nearest diagnostic lab me jaakar test karwayen.`);
    const total=(tests.reduce((sum,t)=>sum+Math.round(Number(t.price)*100),Math.round(Number(a.collection_fee)*100)))/100;
    const b=(await c.query('INSERT INTO lab_bookings(user_id,request_key,patient_name,phone,address,area_id,collection_at,total,collection_fee) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *',[patientUser,key,name,phone,address,area,when,total,a.collection_fee])).rows[0];
    for(const t of tests)await c.query('INSERT INTO lab_booking_items(booking_id,test_id,name,price) VALUES($1,$2,$3,$4)',[b.id,t.id,t.name,t.price]);
@@ -121,8 +157,11 @@ function createLabRouter(db) {
  }));
  router.get('/bookings',route(async(req,res)=>{
   const r=await db.query(`SELECT b.*,a.name AS area_name,c.name AS collector_name,l.name AS laboratory_name,
-   (SELECT json_agg(json_build_object('test_id',i.test_id,'name',i.name,'price',i.price)) FROM lab_booking_items i WHERE i.booking_id=b.id) AS items,
-   EXISTS(SELECT 1 FROM lab_reports r WHERE r.booking_id=b.id) AS has_report
+   (SELECT json_agg(json_build_object('test_id',i.test_id,'name',i.name,'price',i.price,'sample_type',t.sample_type,'preparation',t.preparation,'turnaround_hours',t.turnaround_hours,'kind',t.kind,'home_collection',t.home_collection))
+    FROM lab_booking_items i LEFT JOIN lab_tests t ON t.id=i.test_id WHERE i.booking_id=b.id) AS items,
+   EXISTS(SELECT 1 FROM lab_reports r WHERE r.booking_id=b.id) AS has_report,
+   (SELECT r.filename FROM lab_reports r WHERE r.booking_id=b.id LIMIT 1) AS report_filename,
+   (SELECT r.uploaded_at FROM lab_reports r WHERE r.booking_id=b.id LIMIT 1) AS report_uploaded_at
    FROM lab_bookings b JOIN lab_areas a ON a.id=b.area_id LEFT JOIN lab_collectors c ON c.id=b.collector_id LEFT JOIN lab_laboratories l ON l.id=b.laboratory_id
    WHERE $1::boolean OR b.user_id=$2 OR b.collector_id=$3 OR b.laboratory_id=$4 ORDER BY b.created_at DESC LIMIT 500`,[!!req.user.isadmin,req.user.id,req.member.collector_id||null,req.member.laboratory_id||null]);res.json(r.rows);
  }));
@@ -135,7 +174,7 @@ function createLabRouter(db) {
    if(!(await c.query('SELECT 1 FROM lab_laboratories WHERE id=$1 AND is_active',[lab])).rowCount)fail(400,'Choose an active lab.');
    const cd=amount(req.body.collector_due??0),ld=amount(req.body.lab_due??0);if(cd+ld>Number(b.total))fail(400,'Settlements cannot exceed the booking total.');
    const updated=(await c.query("UPDATE lab_bookings SET collector_id=$2,laboratory_id=$3,status='assigned',collector_due=$4,lab_due=$5 WHERE id=$1 RETURNING *",[b.id,collector,lab,cd,ld])).rows[0];
-   await event(c,b.id,req.user.id,'assigned','Collector and laboratory assigned.');return updated;
+   await event(c,b.id,req.user.id,'assigned','Collector and laboratory assigned. Notification sent to collector.');return updated;
   });res.json(result);
  }));
  router.post('/bookings/:id/status',route(async(req,res)=>{
@@ -148,7 +187,14 @@ function createLabRouter(db) {
    if(!req.user.isadmin && !(next==='collected' && collector) && !(['received','processing','report_ready'].includes(next)&&lab) && !(next==='cancelled'&&owner))fail(403,'This action is not available for your role.');
    if(['collected','received'].includes(next) && req.body.barcode!==b.barcode)fail(400,'Scan or enter the matching sample barcode.');
    if(next==='report_ready' && !(await c.query('SELECT 1 FROM lab_reports WHERE booking_id=$1',[b.id])).rowCount)fail(409,'Upload a PDF report first.');
-   const note=req.body.note?text(req.body.note,1000):'';
+   const defaultNotes = {
+    collected: 'Sample collected from patient. Labelled with barcode. Notification sent to lab for intake.',
+    received: 'Sample received at diagnostic lab. Barcode scanned and patient details verified.',
+    processing: 'Tests running under standard NABL-compliant diagnostic procedures.',
+    report_ready: 'Report verified and released. Automatic notification sent to patient via SMS/WhatsApp/App.',
+    cancelled: 'Booking cancelled.'
+   };
+   const note=req.body.note?text(req.body.note,1000):(defaultNotes[next]||'');
    if(next==='cancelled' && Number(b.paid_amount)>0)fail(409,'Ask the administrator to record a refund before cancellation.');
    const r=(await c.query('UPDATE lab_bookings SET status=$2 WHERE id=$1 RETURNING *',[b.id,next])).rows[0];await event(c,b.id,req.user.id,next,note);return r;
   }));
@@ -161,7 +207,7 @@ function createLabRouter(db) {
    if(b.status!=='processing')fail(409,'Reports can be uploaded only while processing.');
    const name=text(req.body.filename,150).replace(/[^a-zA-Z0-9._-]/g,'_');
    await c.query('INSERT INTO lab_reports(booking_id,filename,content,uploaded_by) VALUES($1,$2,$3,$4) ON CONFLICT(booking_id) DO UPDATE SET filename=$2,content=$3,uploaded_by=$4,uploaded_at=now()',[b.id,name,bytes,req.user.id]);
-   await event(c,b.id,req.user.id,b.status,'Report uploaded for review.');return {success:true};
+   await event(c,b.id,req.user.id,b.status,`Digital report (${name}) uploaded. Ready for final verification and release.`);return {success:true};
   }));
  }));
  router.get('/bookings/:id/report',route(async(req,res)=>{

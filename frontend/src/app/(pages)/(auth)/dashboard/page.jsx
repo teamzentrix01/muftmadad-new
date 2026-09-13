@@ -28,6 +28,8 @@ import {
   Save,
   MapPin,
   Menu,
+  UserCheck,
+  Shield,
 } from "lucide-react";
 import HospitalCareAdmin from '@/components/care/HospitalCareAdmin';
 import LabDashboard from '@/components/lab/LabDashboard';
@@ -40,6 +42,7 @@ import ReviewForm from "../add_user_reviews/page";
 import AddSpecialityForm from "../add-speciality/page";
 import BlogBuilder from "../../BlogBuilder/page";
 import AddCityForm from "../add_city/page";
+import RecycleBinAdmin from "@/components/admin/RecycleBinAdmin";
 
 const API = process.env.NEXT_PUBLIC_API_URL; // Remove hardcoded value
 const grad = "linear-gradient(90deg,#2563eb,#10b981)";
@@ -1662,6 +1665,924 @@ function CitiesListPage({ setPage }) {
   );
 }
 
+/* ─── All Registered Accounts List ───────────────────────────────────────────*/
+function AccountsListPage({ setPage }) {
+  const [data, setData] = useState([]);
+  const [stats, setStats] = useState({ total_accounts: 0, total_patients: 0, total_staff: 0, recent_signups: 0 });
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const fetchAccounts = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await axios.get(`${API}/admin-users/accounts`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          role: roleFilter !== 'all' ? roleFilter : undefined,
+          search: search.trim() || undefined
+        },
+        withCredentials: true,
+      });
+      if (res.data?.success) {
+        setData(res.data.data || []);
+        if (res.data.stats) setStats(res.data.stats);
+      }
+    } catch (err) {
+      setToast({ msg: err.response?.data?.message || "Failed to load user accounts", type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  }, [roleFilter, search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchAccounts();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [fetchAccounts]);
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      const token = localStorage.getItem("authToken");
+      await axios.delete(`${API}/admin-users/accounts/${deleteTarget.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      setToast({ msg: `Account deleted successfully!`, type: "success" });
+      setData(prev => prev.filter(item => item.id !== deleteTarget.id));
+      setStats(prev => ({
+        ...prev,
+        total_accounts: Math.max(0, prev.total_accounts - 1),
+        total_patients: deleteTarget.role === 'patient' ? Math.max(0, prev.total_patients - 1) : prev.total_patients,
+        total_staff: deleteTarget.role === 'staff' ? Math.max(0, prev.total_staff - 1) : prev.total_staff,
+      }));
+    } catch (err) {
+      setToast({ msg: err.response?.data?.message || "Failed to delete account", type: "error" });
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      {deleteTarget && (
+        <ConfirmModal
+          message={`Are you sure you want to delete the account for "${deleteTarget.name}" (${deleteTarget.email})?`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 uppercase tracking-wider">
+              Account Registration Tracking
+            </span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">All Registered Accounts</h2>
+          <p className="text-gray-500 text-sm mt-1">
+            Real-time record of every patient and healthcare staff member who registered on the platform.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <button
+            onClick={fetchAccounts}
+            className="flex items-center gap-2 p-2 sm:px-4 sm:py-2 hover:bg-gray-100 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 shadow-xs"
+            title="Refresh list"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setPage('list-staff')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold shadow-md hover:shadow-lg transition-all"
+            style={{ background: grad }}
+          >
+            <Shield className="w-4 h-4" />
+            <span>Manage Staff &amp; Posts →</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500 uppercase">Total Accounts</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{stats.total_accounts}</p>
+          <p className="text-xs text-blue-600 mt-1">All registered users</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500 uppercase">Patients</p>
+          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1">{stats.total_patients}</p>
+          <p className="text-xs text-gray-400 mt-1">Individuals &amp; families</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500 uppercase">Healthcare Staff</p>
+          <p className="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1">{stats.total_staff}</p>
+          <p className="text-xs text-gray-400 mt-1">Staff directory members</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm">
+          <p className="text-xs font-semibold text-gray-500 uppercase">New (Last 7 Days)</p>
+          <p className="text-2xl sm:text-3xl font-bold text-indigo-600 mt-1">{stats.recent_signups}</p>
+          <p className="text-xs text-gray-400 mt-1">Recent registrations</p>
+        </div>
+      </div>
+
+      {/* Filter and Search Bar */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        {/* Role Filter Tabs */}
+        <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl w-full sm:w-auto">
+          {[
+            { key: "all", label: "All Accounts" },
+            { key: "patient", label: "👤 Patients" },
+            { key: "staff", label: "🩺 Staff Members" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setRoleFilter(tab.key)}
+              className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                roleFilter === tab.key
+                  ? "bg-white text-blue-600 shadow-xs"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Search */}
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search name, email, phone..."
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50/50"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400">
+            <RefreshCw className="w-6 h-6 animate-spin mr-3 text-blue-500" /> Loading registered accounts...
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <Users className="w-12 h-12 mb-3 opacity-20" />
+            <p className="font-semibold text-gray-600">No accounts match the criteria</p>
+            <p className="text-xs text-gray-400 mt-1">Try clearing search or filters</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">User Details</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Account Role</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Post / Designation</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Department</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Registered At</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="text-right py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((item, idx) => {
+                  const isStaff = item.role === 'staff';
+                  const isAdmin = Boolean(item.isadmin);
+                  return (
+                    <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 transition-all">
+                      <td className="py-3 sm:py-4 px-4 text-xs text-gray-400">{idx + 1}</td>
+                      <td className="py-3 sm:py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-9 h-9 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs"
+                            style={{
+                              background: isAdmin
+                                ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                : isStaff
+                                ? 'linear-gradient(135deg, #059669, #10b981)'
+                                : 'linear-gradient(135deg, #2563eb, #3b82f6)',
+                            }}
+                          >
+                            {item.name ? item.name.slice(0, 2).toUpperCase() : "U"}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                              {item.name}
+                              {isAdmin && (
+                                <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-bold">
+                                  Admin
+                                </span>
+                              )}
+                            </p>
+                            <p className="text-xs text-gray-500">{item.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-xs font-mono text-gray-700">
+                        {item.phone || "—"}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4">
+                        {isAdmin ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            🛡️ Administrator
+                          </span>
+                        ) : isStaff ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            🩺 Healthcare Staff
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                            👤 Patient
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4">
+                        {isStaff ? (
+                          item.post && item.post.trim() && item.post !== '-' && item.post !== 'Pending Assignment' ? (
+                            <span className="text-xs font-semibold text-gray-800 bg-gray-100 px-2.5 py-1 rounded-lg border border-gray-200">
+                              {item.post}
+                            </span>
+                          ) : (
+                            <span className="font-bold text-gray-500 text-sm">-</span>
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-xs">
+                        {isStaff ? (
+                          item.department && item.department.trim() && item.department !== '-' ? (
+                            <span className="text-gray-700 font-medium">{item.department}</span>
+                          ) : (
+                            <span className="font-bold text-gray-500 text-sm">-</span>
+                          )
+                        ) : (
+                          <span className="text-xs text-gray-400">—</span>
+                        )}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-xs text-gray-500 whitespace-nowrap">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : "—"}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4">
+                        {isStaff && (!item.status || item.status.toLowerCase() === 'pending') ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Pending
+                          </span>
+                        ) : (
+                          <Badge active={item.status === 'active' || (!isStaff && item.status !== 'inactive')} />
+                        )}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {isStaff && (
+                            <button
+                              onClick={() => setPage('list-staff')}
+                              className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+                              title="Assign or edit post in staff directory"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                              <span>Edit Post</span>
+                            </button>
+                          )}
+                          {!isAdmin && (
+                            <button
+                              onClick={() => setDeleteTarget(item)}
+                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              title="Delete account"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Staff Directory & Post Assignment ──────────────────────────────────────*/
+function StaffListPage({ setPage }) {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [deptFilter, setDeptFilter] = useState("all");
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+  const [toast, setToast] = useState(null);
+
+  // Edit form state inside modal
+  const [postForm, setPostForm] = useState({
+    post: "",
+    department: "General",
+    status: "active",
+    notes: "",
+  });
+
+  const postPresets = [
+    "Lab Technician",
+    "Sample Collector",
+    "Duty Doctor",
+    "Staff Nurse",
+    "Head Nurse",
+    "Receptionist / Front Desk",
+    "Radiology Technician",
+    "Pharmacist",
+    "Billing & Insurance Executive",
+    "Ward Coordinator",
+    "Hospital Administrator"
+  ];
+
+  const deptPresets = [
+    "Hospital Care",
+    "Diagnostic Lab",
+    "Emergency / ICU",
+    "OPD & Consultation",
+    "Radiology",
+    "Pharmacy",
+    "Administration",
+    "General"
+  ];
+
+  const fetchStaff = useCallback(async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await axios.get(`${API}/admin-users/staff`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params: {
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          search: search.trim() || undefined
+        },
+        withCredentials: true,
+      });
+      if (res.data?.success) {
+        setData(res.data.data || []);
+      }
+    } catch (err) {
+      setToast({ msg: err.response?.data?.message || "Failed to load staff list", type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter, search]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchStaff();
+    }, 200);
+    return () => clearTimeout(timer);
+  }, [fetchStaff]);
+
+  const openEditModal = (staffItem) => {
+    setEditTarget(staffItem);
+    setPostForm({
+      post: (staffItem.post === '-' || staffItem.post === 'Pending Assignment') ? '' : (staffItem.post || ''),
+      department: (staffItem.department === '-') ? '' : (staffItem.department || ''),
+      status: staffItem.status || 'pending',
+      notes: staffItem.notes || '',
+    });
+  };
+
+  const handleSavePost = async (e) => {
+    e?.preventDefault();
+    if (!editTarget) return;
+    if (!postForm.post.trim()) {
+      setToast({ msg: "Please enter or select a Post / Designation", type: "error" });
+      return;
+    }
+    setEditLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await axios.put(`${API}/admin-users/staff/${editTarget.id}`, {
+        post: postForm.post.trim() || '-',
+        department: postForm.department.trim() || '-',
+        status: postForm.status || 'active',
+        notes: postForm.notes,
+      }, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      if (res.data?.success) {
+        setToast({ msg: res.data.message || "Post assigned successfully!", type: "success" });
+        setData(prev => prev.map(s => s.id === editTarget.id ? { ...s, ...res.data.data } : s));
+        setEditTarget(null);
+      }
+    } catch (err) {
+      setToast({ msg: err.response?.data?.message || "Failed to update staff post", type: "error" });
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteStaff = async () => {
+    if (!deleteTarget) return;
+    try {
+      const token = localStorage.getItem("authToken");
+      await axios.delete(`${API}/admin-users/staff/${deleteTarget.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true,
+      });
+      setToast({ msg: `${deleteTarget.name} removed from staff directory`, type: "success" });
+      setData(prev => prev.filter(s => s.id !== deleteTarget.id));
+    } catch (err) {
+      setToast({ msg: err.response?.data?.message || "Failed to remove staff member", type: "error" });
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  const assignedCount = data.filter(s => s.post && s.post !== '-' && s.post !== 'Pending Assignment').length;
+  const pendingCount = data.filter(s => !s.post || s.post === '-' || s.post === 'Pending Assignment' || s.status === 'pending').length;
+  const hospitalCount = data.filter(s => {
+    const d = (s.department || '').toLowerCase();
+    const p = (s.post || '').toLowerCase();
+    return d.includes('hospital') || d.includes('care') || d.includes('ward') || d.includes('opd') || d.includes('emergency') || p.includes('doctor') || p.includes('nurse');
+  }).length;
+  const labCount = data.filter(s => {
+    const d = (s.department || '').toLowerCase();
+    const p = (s.post || '').toLowerCase();
+    return d.includes('lab') || d.includes('diagnost') || d.includes('patholog') || p.includes('technician') || p.includes('collector');
+  }).length;
+
+  const displayData = data.filter(item => {
+    if (deptFilter === 'pending') {
+      return !item.post || item.post === '-' || item.post === 'Pending Assignment' || item.status === 'pending';
+    }
+    if (deptFilter === 'hospital') {
+      const d = (item.department || '').toLowerCase();
+      const p = (item.post || '').toLowerCase();
+      return d.includes('hospital') || d.includes('care') || d.includes('ward') || d.includes('opd') || d.includes('emergency') || p.includes('doctor') || p.includes('nurse');
+    }
+    if (deptFilter === 'lab') {
+      const d = (item.department || '').toLowerCase();
+      const p = (item.post || '').toLowerCase();
+      return d.includes('lab') || d.includes('diagnost') || d.includes('patholog') || p.includes('technician') || p.includes('collector');
+    }
+    return true;
+  });
+
+  return (
+    <div className="p-4 sm:p-6 lg:p-8">
+      {deleteTarget && (
+        <ConfirmModal
+          message={`Remove "${deleteTarget.name}" from Staff Directory? Their user account will be reverted to patient.`}
+          onConfirm={handleDeleteStaff}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+
+      {/* Edit Post Modal / Drawer */}
+      {editTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-5">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                  Admin Post Assignment
+                </span>
+                <h3 className="text-xl font-bold text-gray-800 mt-1">Assign Post / Designation</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Set the official hospital/lab role for <strong className="text-gray-700">{editTarget.name}</strong>
+                </p>
+              </div>
+              <button onClick={() => setEditTarget(null)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePost} className="space-y-4">
+              {/* Member Info Summary */}
+              <div className="bg-gray-50 rounded-2xl p-3.5 border border-gray-100 text-xs space-y-1">
+                <p className="text-gray-700 font-semibold">{editTarget.name}</p>
+                <p className="text-gray-500 font-mono">Email: {editTarget.email} · Phone: {editTarget.phone}</p>
+              </div>
+
+              {/* Quick Preset Chips */}
+              <div>
+                <label className="block text-xs font-bold text-gray-600 uppercase tracking-wider mb-2">
+                  Quick Post Presets (Click to choose)
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {postPresets.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setPostForm(prev => ({ ...prev, post: preset }))}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                        postForm.post === preset
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Post / Designation Field */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Post / Designation *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={postForm.post}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, post: e.target.value }))}
+                  placeholder="e.g. Senior Lab Technician, Head Nurse, Duty Doctor..."
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium text-gray-800"
+                />
+              </div>
+
+              {/* Department */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Department / Facility
+                </label>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {deptPresets.map((dept) => (
+                    <button
+                      key={dept}
+                      type="button"
+                      onClick={() => setPostForm(prev => ({ ...prev, department: dept }))}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
+                        postForm.department === dept
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                          : 'bg-white text-gray-700 border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50'
+                      }`}
+                    >
+                      {dept}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={postForm.department}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, department: e.target.value }))}
+                  placeholder="e.g. Diagnostic Lab, Hospital Care, Emergency, OPD..."
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+                />
+              </div>
+
+              {/* Status */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Staff Status
+                </label>
+                <select
+                  value={postForm.status}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800"
+                >
+                  <option value="active">Active (On Duty)</option>
+                  <option value="pending">Pending Verification</option>
+                  <option value="on_leave">On Leave</option>
+                  <option value="inactive">Inactive / Suspended</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                  Admin Internal Notes (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={postForm.notes}
+                  onChange={(e) => setPostForm(prev => ({ ...prev, notes: e.target.value }))}
+                  placeholder="Any internal remarks or verification notes..."
+                  className="w-full px-3.5 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Buttons */}
+              <div className="flex gap-3 pt-3 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditTarget(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-medium text-sm hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={editLoading}
+                  className="flex-1 py-2.5 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 shadow-md hover:shadow-lg disabled:opacity-50 transition-all"
+                  style={{ background: grad }}
+                >
+                  {editLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {editLoading ? "Saving..." : "Save Post"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 uppercase tracking-wider">
+              Staff Management &amp; Roles
+            </span>
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800">Staff Directory &amp; Post Assignment</h2>
+          <p className="text-gray-500 text-sm mt-1">
+            Central staff management: view and assign posts across Hospital Care, Diagnostic Labs, and Pending requests.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <button
+            onClick={fetchStaff}
+            className="flex items-center gap-2 p-2 sm:px-4 sm:py-2 hover:bg-gray-100 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 shadow-xs"
+            title="Refresh list"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <button
+            onClick={() => setPage('list-accounts')}
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl text-gray-700 border border-gray-200 bg-white hover:bg-gray-50 text-sm font-medium shadow-xs"
+          >
+            <Users className="w-4 h-4 text-blue-600" />
+            <span>View All Accounts</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Interactive Category Filter Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
+        <button
+          type="button"
+          onClick={() => setDeptFilter('all')}
+          className={`rounded-2xl p-4 sm:p-5 text-left border transition-all cursor-pointer ${
+            deptFilter === 'all'
+              ? 'bg-blue-50 border-blue-400 shadow-md ring-2 ring-blue-500/20'
+              : 'bg-white border-gray-100 hover:border-gray-300 shadow-sm'
+          }`}
+        >
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">All Staff Members</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-1">{data.length}</p>
+          <p className="text-xs text-blue-600 font-medium mt-1">All departments →</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setDeptFilter('pending')}
+          className={`rounded-2xl p-4 sm:p-5 text-left border transition-all cursor-pointer ${
+            deptFilter === 'pending'
+              ? 'bg-amber-50 border-amber-400 shadow-md ring-2 ring-amber-500/20'
+              : 'bg-white border-gray-100 hover:border-gray-300 shadow-sm'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">⚠️ Pending Allocation</p>
+            {pendingCount > 0 && <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />}
+          </div>
+          <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1">{pendingCount}</p>
+          <p className="text-xs text-amber-700 font-medium mt-1">Require post/dept →</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setDeptFilter('hospital')}
+          className={`rounded-2xl p-4 sm:p-5 text-left border transition-all cursor-pointer ${
+            deptFilter === 'hospital'
+              ? 'bg-emerald-50 border-emerald-400 shadow-md ring-2 ring-emerald-500/20'
+              : 'bg-white border-gray-100 hover:border-gray-300 shadow-sm'
+          }`}
+        >
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">🩺 Hospital Care</p>
+          <p className="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1">{hospitalCount}</p>
+          <p className="text-xs text-emerald-700 font-medium mt-1">Doctors, Nurses, Ward →</p>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setDeptFilter('lab')}
+          className={`rounded-2xl p-4 sm:p-5 text-left border transition-all cursor-pointer ${
+            deptFilter === 'lab'
+              ? 'bg-indigo-50 border-indigo-400 shadow-md ring-2 ring-indigo-500/20'
+              : 'bg-white border-gray-100 hover:border-gray-300 shadow-sm'
+          }`}
+        >
+          <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">🧪 Diagnostic Lab</p>
+          <p className="text-2xl sm:text-3xl font-bold text-indigo-600 mt-1">{labCount}</p>
+          <p className="text-xs text-indigo-700 font-medium mt-1">Technicians, Collectors →</p>
+        </button>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 p-1 bg-gray-100 rounded-xl w-full sm:w-auto">
+          {[
+            { key: "all", label: "All Status" },
+            { key: "active", label: "Active" },
+            { key: "pending", label: "Pending" },
+            { key: "on_leave", label: "On Leave" },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setStatusFilter(tab.key)}
+              className={`flex-1 sm:flex-initial px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                statusFilter === tab.key
+                  ? "bg-white text-emerald-700 shadow-xs"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search staff, post, department..."
+            className="w-full pl-9 pr-4 py-2 border border-gray-200 rounded-xl text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-gray-50/50"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Staff Table */}
+      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-gray-400">
+            <RefreshCw className="w-6 h-6 animate-spin mr-3 text-emerald-500" /> Loading staff directory...
+          </div>
+        ) : displayData.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <Shield className="w-12 h-12 mb-3 opacity-20" />
+            <p className="font-semibold text-gray-600">No staff members found in this category</p>
+            <p className="text-xs text-gray-400 mt-1">Try switching categories or clearing search filters.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[750px]">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Staff Member</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Contact</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Post / Designation</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Department</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="text-left py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Joined</th>
+                  <th className="text-right py-4 px-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayData.map((item, idx) => {
+                  const hasPost = Boolean(item.post && item.post.trim() && item.post !== '-' && item.post !== 'Pending Assignment');
+                  const hasDept = Boolean(item.department && item.department.trim() && item.department !== '-');
+                  const isPending = !item.status || item.status.toLowerCase() === 'pending';
+                  return (
+                    <tr key={item.id} className="border-b border-gray-100 hover:bg-gray-50 transition-all">
+                      <td className="py-3 sm:py-4 px-4 text-xs text-gray-400">{idx + 1}</td>
+                      <td className="py-3 sm:py-4 px-4">
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-xs"
+                            style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}
+                          >
+                            {item.name ? item.name.slice(0, 2).toUpperCase() : "ST"}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-800">{item.name}</p>
+                            <p className="text-xs text-gray-500">{item.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-xs font-mono text-gray-700">
+                        {item.phone || "—"}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4">
+                        {!hasPost ? (
+                          <span className="font-bold text-gray-500 text-sm">-</span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                            🩺 {item.post}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-xs">
+                        {!hasDept ? (
+                          <span className="font-bold text-gray-500 text-sm">-</span>
+                        ) : (
+                          <span className="text-gray-700 font-medium">{item.department}</span>
+                        )}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4">
+                        {isPending ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            Pending
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                              item.status === 'active'
+                                ? 'bg-green-100 text-green-700 border border-green-200'
+                                : item.status === 'on_leave'
+                                ? 'bg-blue-100 text-blue-700 border border-blue-200'
+                                : 'bg-gray-100 text-gray-700 border border-gray-200'
+                            }`}
+                          >
+                            {item.status === 'active' && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+                            {item.status.replace('_', ' ')}
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-xs text-gray-500 whitespace-nowrap">
+                        {item.created_at
+                          ? new Date(item.created_at).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })
+                          : "—"}
+                      </td>
+                      <td className="py-3 sm:py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => openEditModal(item)}
+                            className="px-3 py-1.5 text-xs font-bold rounded-xl text-white shadow-xs hover:shadow-md transition-all flex items-center gap-1.5"
+                            style={{ background: grad }}
+                            title="Assign or edit post"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>{isPending ? "Assign Post" : "Edit Post"}</span>
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(item)}
+                            className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="Remove from staff"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ─── Sidebar ────────────────────────────────────────────────────────────────*/
 function Sidebar({ activePage, setPage, isOpen, onClose }) {
   const router = useRouter();
@@ -2180,6 +3101,17 @@ function HamburgerMenu({ activePage, setPage }) {
       key: "list-blogs",
     },
     { icon: <MapPin className="w-5 h-5" />,        label: 'All Cities',       key: 'list-cities' },
+    { divider: true, label: "ACCOUNTS & STAFF" },
+    {
+      icon: <UserCheck className="w-5 h-5" />,
+      label: "All Accounts",
+      key: "list-accounts",
+    },
+    {
+      icon: <Shield className="w-5 h-5" />,
+      label: "Staff & Posts",
+      key: "list-staff",
+    },
   ];
 
   const handleNav = (key, keepOpen = false) => {
@@ -2317,7 +3249,14 @@ export default function HospitalDashboard() {
           withCredentials: true,
           timeout: 5000,
         });
-        if (!session.data.user?.isadmin) { router.replace("/care?view=bookings"); return; }
+        if (!session.data.user?.isadmin) {
+          if (session.data.user?.is_staff || session.data.user?.membership?.laboratory_id || session.data.user?.membership?.collector_id) {
+            router.replace("/labs/workspace");
+          } else {
+            router.replace("/labs");
+          }
+          return;
+        }
         setAuthChecked(true);
       } catch {
         localStorage.removeItem("authToken");
@@ -2378,6 +3317,9 @@ export default function HospitalDashboard() {
         {page === "list-blogs" && <BlogsListPage setPage={setPage} />}
         {page === "add-city" && <AddCityForm />}
         {page === "list-cities" && <CitiesListPage setPage={setPage} />}
+        {page === "list-accounts" && <AccountsListPage setPage={setPage} />}
+        {page === "list-staff" && <StaffListPage setPage={setPage} />}
+        {page === "recycle-bin" && <RecycleBinAdmin />}
       </div>
     </div>
   );

@@ -541,13 +541,13 @@ CREATE TABLE public.users (
     id bigint NOT NULL,
     uuid uuid DEFAULT gen_random_uuid(),
     name character varying(100) NOT NULL,
-    email character varying(255) NOT NULL,
+    email character varying(255),
     phone character varying(20) NOT NULL,
     hash_password text NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     isadmin boolean DEFAULT true,
-    CONSTRAINT users_email_check CHECK (((email)::text = lower((email)::text)))
+    CONSTRAINT users_email_check CHECK (email IS NULL OR ((email)::text = lower((email)::text)))
 );
 
 

@@ -1,5 +1,7 @@
+
 'use client';
 import React, { useState } from 'react';
+import Link from 'next/link';
 import axios from 'axios';
 
 export default function SignupPage() {
@@ -10,7 +12,7 @@ export default function SignupPage() {
     password: '',
     confirmPassword: '',
   });
-  
+
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -18,20 +20,21 @@ export default function SignupPage() {
   const [success, setSuccess] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [accountType, setAccountType] = useState('patient');
+  const [staffRole, setStaffRole] = useState('laboratory');
 
   // Configure axios to send cookies with requests
   axios.defaults.withCredentials = true;
 
   // Validation functions
   const validateEmail = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test((email || '').trim());
   };
 
   const validatePhone = (phone) => {
-    // Accepts formats: +1234567890, 1234567890, 123-456-7890, (123) 456-7890
-    const phoneRegex = /^[\+]?[(]?[0-9]{1,4}[)]?[-\s\.]?[(]?[0-9]{1,4}[)]?[-\s\.]?[0-9]{1,9}$/;
-    return phoneRegex.test(phone.replace(/\s/g, ''));
+    const clean = (phone || '').replace(/\D/g, '');
+    return /^[6-9]\d{9}$/.test(clean);
   };
 
   const validatePassword = (password) => {
@@ -41,19 +44,43 @@ export default function SignupPage() {
   };
 
   const validateName = (name) => {
-    return name.trim().length >= 2;
+    const trimmed = (name || '').trim();
+    return /^[a-zA-Z\s]{2,50}$/.test(trimmed);
   };
 
   // Handle input change
   const handleChange = (e) => {
     const { name, value } = e.target;
+    let formattedValue = value;
+
+    if (name === 'name') {
+      // Limitation: Name should only accept alphabets and spaces
+      formattedValue = value.replace(/[^a-zA-Z\s]/g, '');
+    } else if (name === 'phone') {
+      // Limitation: Phone should only accept digits, max 10 digits
+      const digitsOnly = value.replace(/\D/g, '').slice(0, 10);
+      formattedValue = digitsOnly;
+
+      if (digitsOnly.length > 0 && !/^[6-9]/.test(digitsOnly)) {
+        setFieldErrors(prev => ({
+          ...prev,
+          phone: 'Invalid number: Mobile number must start with 6, 7, 8, or 9'
+        }));
+      } else {
+        setFieldErrors(prev => ({
+          ...prev,
+          phone: ''
+        }));
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: formattedValue
     }));
-    
-    // Clear field error when user types
-    if (fieldErrors[name]) {
+
+    // Clear field error when user types (for non-phone fields)
+    if (name !== 'phone' && fieldErrors[name]) {
       setFieldErrors(prev => ({
         ...prev,
         [name]: ''
@@ -66,20 +93,28 @@ export default function SignupPage() {
   const handleBlur = (field) => {
     const errors = {};
 
-    switch(field) {
+    switch (field) {
       case 'name':
-        if (formData.name && !validateName(formData.name)) {
-          errors.name = 'Name must be at least 2 characters';
+        if (!formData.name || !formData.name.trim()) {
+          errors.name = 'Please enter your full name';
+        } else if (!validateName(formData.name)) {
+          errors.name = 'Name must contain only alphabets (at least 2 characters)';
         }
         break;
       case 'email':
-        if (formData.email && !validateEmail(formData.email)) {
-          errors.email = 'Please enter a valid email address';
+        if (formData.email && formData.email.trim()) {
+          if (!validateEmail(formData.email)) {
+            errors.email = 'Please enter a valid email format (e.g. name@example.com)';
+          }
         }
         break;
       case 'phone':
-        if (formData.phone && !validatePhone(formData.phone)) {
-          errors.phone = 'Please enter a valid phone number';
+        if (!formData.phone) {
+          errors.phone = 'Please enter your 10-digit mobile number';
+        } else if (!/^[6-9]/.test(formData.phone)) {
+          errors.phone = 'Invalid Number: Fill the valid number';
+        } else if (formData.phone.length !== 10) {
+          errors.phone = 'Mobile number must be exactly 10 digits';
         }
         break;
       case 'password':
@@ -103,16 +138,25 @@ export default function SignupPage() {
   const validateForm = () => {
     const errors = {};
 
-    if (!validateName(formData.name)) {
-      errors.name = 'Name must be at least 2 characters';
+    if (!formData.name || !formData.name.trim()) {
+      errors.name = 'Please enter your full name';
+    } else if (!validateName(formData.name)) {
+      errors.name = 'Name must contain only alphabets (at least 2 characters)';
     }
 
-    if (!validateEmail(formData.email)) {
-      errors.email = 'Please enter a valid email address';
+    // Email is optional, but if entered, must be in valid format
+    if (formData.email && formData.email.trim()) {
+      if (!validateEmail(formData.email)) {
+        errors.email = 'Please enter a valid email format (e.g. name@example.com)';
+      }
     }
 
-    if (!validatePhone(formData.phone)) {
-      errors.phone = 'Please enter a valid phone number';
+    if (!formData.phone) {
+      errors.phone = 'Please enter your 10-digit mobile number';
+    } else if (!/^[6-9]/.test(formData.phone)) {
+      errors.phone = 'Invalid Number: Fill the valid number';
+    } else if (formData.phone.length !== 10) {
+      errors.phone = 'Mobile number must be exactly 10 digits';
     }
 
     if (!validatePassword(formData.password)) {
@@ -142,22 +186,27 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, {
+      const payload = {
         name: formData.name.trim(),
-        email: formData.email.toLowerCase().trim(),
+        email: formData.email?.trim() ? formData.email.toLowerCase().trim() : undefined,
         phone: formData.phone.replace(/\s/g, ''),
         password: formData.password,
-      }, {
+        account_type: accountType,
+        role: accountType,
+      };
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/auth/signup`, payload, {
         headers: {
           'Content-Type': 'application/json',
         },
         withCredentials: true,
         timeout: 10000,
       });
-      
+
+      const user = response.data?.user;
+      const isStaffUser = Boolean(user?.is_staff || accountType === 'staff');
       // Handle successful signup
-      setSuccess('Account created successfully! Opening hospital care...');
-      
+      setSuccess(isStaffUser ? 'Staff account created! You have been added to the Staff Directory (Post will be assigned by Administrator).' : 'Account created successfully! Opening portal...');
+
       if (response.data.token) localStorage.setItem('authToken', response.data.token);
       // Store user data if provided (token will be in cookie)
       if (response.data.user) {
@@ -174,30 +223,27 @@ export default function SignupPage() {
       });
       setAcceptTerms(false);
 
-      // Redirect after 2 seconds
+      // Redirect after 1.5 seconds
       setTimeout(() => {
-        console.log('Opening hospital care...');
         const next = new URLSearchParams(window.location.search).get('next');
-        window.location.href = next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : '/care';
-        // OR if using React Router:
-        // navigate('/dashboard');
-      }, 2000);
-      
+        const safeNext = next && next.startsWith('/') && !next.startsWith('//') && !next.includes('\\') ? next : null;
+        if (isStaffUser) {
+          window.location.href = (safeNext && safeNext !== '/dashboard') ? safeNext : '/labs/workspace';
+        } else {
+          window.location.href = (safeNext && safeNext !== '/dashboard') ? safeNext : '/labs';
+        }
+      }, 1500);
+
     } catch (err) {
       console.error('Signup error:', err);
-      
       if (err.response) {
-        // Server responded with error
         const errorMessage = err.response.data?.message || 'Registration failed';
-        
-        // Handle specific field errors
         if (err.response.data?.field) {
           setFieldErrors(prev => ({
             ...prev,
             [err.response.data.field]: err.response.data.message
           }));
         }
-        
         setError(errorMessage);
       } else if (err.request) {
         setError('Unable to connect to server. Please check if the server is running.');
@@ -208,12 +254,6 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
-
-  // Handle social signup
-  const handleSocialSignup = (provider) => {
-    console.log(`Signing up with ${provider}`);
-    window.location.href = `${process.env.NEXT_PUBLIC_API_URL}/auth/${provider}`;
-};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-blue-50 via-indigo-50 to-purple-50 px-4 sm:px-6 lg:px-8 py-12">
@@ -261,11 +301,41 @@ export default function SignupPage() {
               </div>
             )}
 
+            {/* Account Type Selector */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-gray-700">Account Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAccountType('patient')}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${accountType === 'patient'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white/70 text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                >
+                  <span>👤</span> Patient / Individual
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType('staff')}
+                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold border transition-all flex items-center justify-center gap-1.5 ${accountType === 'staff'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                      : 'bg-white/70 text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                >
+                  <span>🩺</span> Healthcare Staff
+                </button>
+              </div>
+            </div>
+
             {/* Name Field */}
             <div className="space-y-2">
-              <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
-                Full Name
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="name" className="block text-sm font-semibold text-gray-700">
+                  Full Name
+                </label>
+                <span className="text-xs text-gray-400 font-medium">Alphabets only</span>
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -276,20 +346,18 @@ export default function SignupPage() {
                   id="name"
                   name="name"
                   type="text"
-                  autoComplete="name"
                   required
                   value={formData.name}
                   onChange={handleChange}
                   onBlur={() => handleBlur('name')}
-                  className={`block w-full pl-12 pr-4 py-3 border ${
-                    fieldErrors.name ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
-                  } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
-                  placeholder="John Doe"
+                  className={`block w-full pl-12 pr-4 py-3 border ${fieldErrors.name ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
+                    } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
+                  placeholder="Enter your full name (e.g. Rahul Sharma)"
                 />
               </div>
               {fieldErrors.name && (
                 <p className="text-red-600 text-xs mt-1 ml-1 flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   {fieldErrors.name}
@@ -297,15 +365,18 @@ export default function SignupPage() {
               )}
             </div>
 
-            {/* Email Field */}
+            {/* Email Field (Optional) */}
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
-                Email Address
-              </label>
+              <div className="flex items-center justify-between">
+                <label htmlFor="email" className="block text-sm font-semibold text-gray-700">
+                  Email Address
+                </label>
+                <span className="text-xs text-gray-400 font-medium">Optional</span>
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
                 <input
@@ -313,19 +384,17 @@ export default function SignupPage() {
                   name="email"
                   type="email"
                   autoComplete="email"
-                  required
                   value={formData.email}
                   onChange={handleChange}
                   onBlur={() => handleBlur('email')}
-                  className={`block w-full pl-12 pr-4 py-3 border ${
-                    fieldErrors.email ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
-                  } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
-                  placeholder="you@example.com"
+                  className={`block w-full pl-12 pr-4 py-3 border ${fieldErrors.email ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
+                    } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
+                  placeholder="name@example.com (optional)"
                 />
               </div>
               {fieldErrors.email && (
                 <p className="text-red-600 text-xs mt-1 ml-1 flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   {fieldErrors.email}
@@ -333,38 +402,46 @@ export default function SignupPage() {
               )}
             </div>
 
-            {/* Phone Field */}
+            {/* Mobile Number Field with +91 Badge */}
             <div className="space-y-2">
-              <label htmlFor="phone" className="block text-sm font-semibold text-gray-700">
-                Phone Number
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                  </svg>
+              <div className="flex items-center justify-between">
+                <label htmlFor="phone" className="block text-sm font-semibold text-gray-700">
+                  Mobile Number
+                </label>
+                <span className="text-xs text-gray-400 font-medium"></span>
+              </div>
+              <div className={`flex rounded-xl overflow-hidden border ${fieldErrors.phone ? 'border-red-300 ring-1 ring-red-400' : 'border-gray-300 focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500'
+                } bg-white/50 backdrop-blur-sm transition-all duration-200`}>
+                <div className="inline-flex items-center px-3.5 bg-gray-100/90 border-r border-gray-200 text-gray-700 font-semibold text-sm select-none gap-1.5 flex-shrink-0">
+                  <span className="text-base leading-none">🇮🇳</span>
+                  <span className="tracking-tight text-gray-800 font-bold">+91</span>
                 </div>
                 <input
                   id="phone"
                   name="phone"
                   type="tel"
-                  autoComplete="tel"
+                  inputMode="numeric"
+                  maxLength={10}
                   required
                   value={formData.phone}
                   onChange={handleChange}
                   onBlur={() => handleBlur('phone')}
-                  className={`block w-full pl-12 pr-4 py-3 border ${
-                    fieldErrors.phone ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
-                  } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
-                  placeholder="+1 (555) 123-4567"
+                  className="block w-full py-3 px-3.5 text-gray-900 placeholder-gray-400 bg-transparent focus:outline-none font-mono tracking-wider text-sm"
+                  placeholder="9876543210"
                 />
+                <div className="pr-3.5 flex items-center text-xs text-gray-400 select-none font-medium flex-shrink-0">
+                  {formData.phone.length}/10
+                </div>
               </div>
-              {fieldErrors.phone && (
+              {fieldErrors.phone ? (
                 <p className="text-red-600 text-xs mt-1 ml-1 flex items-center">
-                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                   {fieldErrors.phone}
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 ml-1">
                 </p>
               )}
             </div>
@@ -389,9 +466,8 @@ export default function SignupPage() {
                   value={formData.password}
                   onChange={handleChange}
                   onBlur={() => handleBlur('password')}
-                  className={`block w-full pl-12 pr-12 py-3 border ${
-                    fieldErrors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
-                  } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
+                  className={`block w-full pl-12 pr-12 py-3 border ${fieldErrors.password ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
+                    } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
                   placeholder="Create a strong password"
                 />
                 <button
@@ -444,9 +520,8 @@ export default function SignupPage() {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   onBlur={() => handleBlur('confirmPassword')}
-                  className={`block w-full pl-12 pr-12 py-3 border ${
-                    fieldErrors.confirmPassword ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
-                  } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
+                  className={`block w-full pl-12 pr-12 py-3 border ${fieldErrors.confirmPassword ? 'border-red-300 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-indigo-500 focus:border-indigo-500'
+                    } rounded-xl focus:ring-2 focus:outline-none transition-all duration-200 bg-white/50 backdrop-blur-sm text-gray-900 placeholder-gray-400`}
                   placeholder="Re-enter your password"
                 />
                 <button
@@ -500,6 +575,27 @@ export default function SignupPage() {
                 </>
               )}
             </button>
+
+            {/* Sign In Option for existing users (Patient & Staff) */}
+            <div className="mt-6 pt-5 border-t border-gray-200">
+              <div className="text-center mb-2.5">
+                <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider bg-gray-100/80 px-3 py-1 rounded-full border border-gray-200">
+                  Already have an account? (Patient or Staff)
+                </span>
+              </div>
+              <Link
+                href="/login"
+                className="w-full flex justify-center items-center py-3 px-4 rounded-xl border-2 border-indigo-500/40 bg-indigo-50/70 hover:bg-indigo-100/90 text-indigo-700 text-sm font-bold shadow-xs hover:shadow-md transition-all duration-200 group"
+              >
+                <svg className="w-4 h-4 mr-2 text-indigo-600 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+                Sign In with Email or Mobile Number →
+              </Link>
+              <p className="text-center text-xs text-gray-500 mt-2">
+                Patients and Healthcare Staff can log in directly with their registered Email or Phone number &amp; Password.
+              </p>
+            </div>
           </form>
         </div>
       </div>

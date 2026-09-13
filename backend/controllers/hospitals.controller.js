@@ -14,10 +14,11 @@ const {
     getHospitalsByCityService,
     reorderHospitalsService,
 } = require('../services/hospitals.services');
+const recycleBinService = require('../services/recycleBin.service');
 
 const createHospitalController = async (req, res) => {
     try {
-        const { name, slug, phone, email, address, city, state, country } = req.body;
+        const { name, slug, phone, email, address, city } = req.body;
 
         if (![name, slug, phone, email, address, city].every(value => typeof value === 'string' && value.trim())) {
             return res.status(400).json({
@@ -33,11 +34,10 @@ const createHospitalController = async (req, res) => {
         });
 
     } catch (error) {
-        // ── Detailed error logging so you can see exactly what PostgreSQL rejected ──
         console.error('━━━ Create hospital error ━━━');
         console.error('Message :', error.message);
-        console.error('PG Code :', error.code);       // e.g. 23505 = unique violation
-        console.error('PG Detail:', error.detail);    // e.g. which column caused it
+        console.error('PG Code :', error.code);
+        console.error('PG Detail:', error.detail);
         console.error('PG Hint  :', error.hint);
         console.error('Stack   :', error.stack);
 
@@ -48,7 +48,6 @@ const createHospitalController = async (req, res) => {
                 detail: error.detail
             });
         }
-        // Send the actual DB error message back in dev so you can debug faster
         return res.status(500).json({
             message: 'Failed to create hospital',
             ...(process.env.NODE_ENV !== 'production' && {
@@ -78,27 +77,23 @@ const getHospitalsBySpeciality = async (req, res) => {
         const { specialty, treatment, city } = req.query;
  
         if (treatment) {
-            // Filter by treatment name
             const hospitals = await getHospitalsByTreatmentService(treatment);
             return res.status(200).json({ success: true, data: hospitals });
         }
  
         if (specialty) {
-            // Filter by specialty name
             const hospitals = await getHospitalsBySpecialityService(specialty);
             return res.status(200).json({ success: true, data: hospitals });
         }
  
         if (city) {
-            // Filter by city — add this service function below
             const hospitals = await getHospitalsByCityService(city);
             return res.status(200).json({ success: true, data: hospitals });
         }
  
-        // No filter — return all
         const hospitals = await getAllHospitalsService();
         return res.status(200).json({ success: true, data: hospitals });
- 
+
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
@@ -138,7 +133,6 @@ const updateHospitalController = async (req, res) => {
             data: hospital
         });
     } catch (error) {
-        if (error.status === 400) return res.status(400).json({ message: error.message });
         console.error('Update hospital error:', error);
         return res.status(500).json({ message: 'Failed to update hospital' });
     }
@@ -147,9 +141,24 @@ const updateHospitalController = async (req, res) => {
 const deleteHospitalController = async (req, res) => {
     try {
         const { id } = req.params;
-        const hospital = await deleteHospitalService(id);
-        if (!hospital) return res.status(404).json({ message: 'Hospital not found' });
-        return res.status(200).json({ message: 'Hospital deleted successfully' });
+        const existingHospital = await getHospitalByIdService(id);
+        if (!existingHospital) {
+            return res.status(404).json({ message: 'Hospital not found' });
+        }
+
+        // Archive to recycle bin with Deleter audit info
+        await recycleBinService.moveToBin({
+            entityType: 'hospital',
+            entityId: existingHospital.id,
+            entityName: existingHospital.name,
+            sourceDashboard: 'Hospital Dashboard',
+            originalData: existingHospital,
+            deletedByUser: req.adminUser || req.user
+        });
+
+        const deleted = await deleteHospitalService(id);
+        if (!deleted) return res.status(404).json({ message: 'Hospital not found' });
+        return res.status(200).json({ message: 'Hospital moved to recycle bin successfully' });
     } catch (error) {
         console.error('Delete hospital error:', error);
         return res.status(500).json({ message: 'Failed to delete hospital' });
@@ -162,8 +171,8 @@ const getGalleryController = async (req, res) => {
         const result = await getGalleryImagesService(id);
         if (!result) return res.status(404).json({ message: 'Hospital not found' });
         return res.status(200).json({
-            count: result.gallery_images.length,
-            data: result.gallery_images
+            count: result.gallery_images ? result.gallery_images.length : 0,
+            data: result.gallery_images || []
         });
     } catch (error) {
         console.error('Get gallery error:', error);
@@ -218,7 +227,6 @@ const removeGalleryImageController = async (req, res) => {
 const reorderHospitalsController = async (req, res) => {
     try {
         const { orderedIds } = req.body;
-        // orderedIds = [{ id: 1, display_order: 1 }, { id: 3, display_order: 2 }, ...]
         if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
             return res.status(400).json({ message: 'orderedIds must be a non-empty array' });
         }

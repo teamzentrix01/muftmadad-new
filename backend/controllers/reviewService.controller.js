@@ -2,9 +2,11 @@ const {
   createReviewService,
   getAllReviewService,
   getCityReviewsService,
-      updateReviewService,     // ← add
-    deleteReviewService
+  updateReviewService,
+  deleteReviewService
 } = require("../services/review.services");
+const recycleBinService = require('../services/recycleBin.service');
+const pool = require('../config/db');
 
 const createReviewController = async (req, res) => {
   try {
@@ -56,8 +58,8 @@ const getAllReviewController = async (req, res) => {
 
 const getCityReviewsController = async (req, res) => {
     try {
-        const { city } = req.params;                        // extract city
-        const cityreviews = await getCityReviewsService(city); // pass it
+        const { city } = req.params;
+        const cityreviews = await getCityReviewsService(city);
 
         return res.status(200).json({
             count: cityreviews.length,
@@ -69,7 +71,7 @@ const getCityReviewsController = async (req, res) => {
             message: "Failed to fetch reviews"
         });
     }
-}
+};
 
 const updateReviewController = async (req, res) => {
     try {
@@ -96,13 +98,25 @@ const updateReviewController = async (req, res) => {
 const deleteReviewController = async (req, res) => {
     try {
         const { id } = req.params;
-        const deleted = await deleteReviewService(id);
-
-        if (!deleted) {
+        const check = await pool.query('SELECT * FROM reviews WHERE id = $1', [id]);
+        if (!check.rows[0]) {
             return res.status(404).json({ message: "Review not found" });
         }
 
-        return res.status(200).json({ message: "Review deleted successfully", data: deleted });
+        const existingReview = check.rows[0];
+
+        // Archive into recycle bin with Deleter audit info
+        await recycleBinService.moveToBin({
+            entityType: 'review',
+            entityId: existingReview.id,
+            entityName: `${existingReview.name || 'User'} (${existingReview.treatment || 'Review'})`,
+            sourceDashboard: 'Review Dashboard',
+            originalData: existingReview,
+            deletedByUser: req.adminUser || req.user
+        });
+
+        const deleted = await deleteReviewService(id);
+        return res.status(200).json({ message: "Review moved to recycle bin successfully", data: deleted });
     } catch (error) {
         console.error("Delete review error:", error);
         return res.status(500).json({ message: "Failed to delete review" });
@@ -113,6 +127,6 @@ module.exports = {
   createReviewController,
   getAllReviewController,
   getCityReviewsController,
-   updateReviewController,   // ← add
-    deleteReviewController  
+  updateReviewController,
+  deleteReviewController  
 };

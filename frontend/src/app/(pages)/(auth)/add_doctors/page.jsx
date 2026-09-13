@@ -19,7 +19,6 @@ import axios from 'axios';
 import { cleanDirectoryInput, directoryContactError } from '@/lib/directory-validation';
 import { v4 as uuidv4 } from 'uuid';
 import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
 
 const ImageUploadField = ({ label, value, onChange, placeholder = "https://..." }) => {
   const handleFileChange = (e) => {
@@ -781,7 +780,6 @@ const AdminDoctorForm = () => {
                     </form>
                 </div>
             </div>
-            <Footer />
         </Fragment>
     );
 };

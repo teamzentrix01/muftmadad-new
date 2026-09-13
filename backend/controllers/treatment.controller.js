@@ -1,9 +1,9 @@
-const { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService, reorderTreatmentService } = require("../services/treatment.services")
-
+const { createTreatmentService, getAllTreatmentService, getTreatmentBySpecialtyIdService, updateTreatmentService, deleteTreatmentService, reorderTreatmentService } = require("../services/treatment.services");
+const recycleBinService = require('../services/recycleBin.service');
+const pool = require('../config/db');
 
 const createTreatmentController = async (req, res) => {
     try {
-
         const treatmentData = req.body;
 
         // Basic validation
@@ -79,8 +79,28 @@ const updateTreatmentController = async (req, res) => {
 const deleteTreatmentController = async (req, res) => {
     try {
         const { id } = req.params;
+        const check = await pool.query('SELECT * FROM treatments WHERE id = $1', [id]);
+        if (!check.rows[0]) {
+            return res.status(404).json({
+                success: false,
+                message: 'Treatment not found',
+            });
+        }
+
+        const existingTreatment = check.rows[0];
+
+        // Archive into recycle bin with Deleter audit info
+        await recycleBinService.moveToBin({
+            entityType: 'treatment',
+            entityId: existingTreatment.id,
+            entityName: existingTreatment.name,
+            sourceDashboard: 'Treatment Dashboard',
+            originalData: existingTreatment,
+            deletedByUser: req.adminUser || req.user
+        });
+
         await deleteTreatmentService(id);
-        return res.status(200).json({ success: true, message: 'Treatment deleted successfully' });
+        return res.status(200).json({ success: true, message: 'Treatment moved to recycle bin successfully' });
     } catch (error) {
         console.error('Error in deleteTreatment controller:', error);
         return res.status(404).json({
@@ -104,4 +124,11 @@ const reorderTreatmentController = async (req, res) => {
     }
 };
 
-module.exports = { createTreatmentController, getAllTreatmentController, getTreatmentBySpecialtyIdController, updateTreatmentController,deleteTreatmentController, reorderTreatmentController }
+module.exports = {
+    createTreatmentController,
+    getAllTreatmentController,
+    getTreatmentBySpecialtyIdController,
+    updateTreatmentController,
+    deleteTreatmentController,
+    reorderTreatmentController
+};

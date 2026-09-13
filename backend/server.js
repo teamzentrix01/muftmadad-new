@@ -36,25 +36,19 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
 
-// 3. Rate limiting - only on actual auth (login/register)
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: { message: "Too many requests, please try again later." }
-});
-
-
 // 4. Routes
 app.use('/api/cities', adminWrites);
 app.use('/api/admin/cities', adminWrites);
 app.use('/api', citiesRouter);
-app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/hospitals", adminWrites, hospitalRoutes);
 app.use("/api/doctors", adminWrites, doctorsRoutes);
 app.use("/api/users/", adminWrites, userReviewRoutes);
 app.use("/api/admin/", adminWrites, AddTreatment);
 app.use('/api/specialities', adminWrites, specialitiesRoutes);
 app.use('/api/blogs', adminWrites, blogsRoutes);
+app.use('/api/admin-users', require('./routes/adminUsers.routes'));
+app.use('/api/recycle-bin', require('./routes/recycleBin.routes'));
 app.use('/api/care', require('./routes/care.routes').createCareRouter(require('./config/db')));
 app.use('/api/lab', require('./routes/lab.routes').createLabRouter(pool));
 

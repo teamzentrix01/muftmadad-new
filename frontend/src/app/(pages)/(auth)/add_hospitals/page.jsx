@@ -1,5 +1,4 @@
 "use client";
-import Footer from "@/components/Footer";
 import Navbar from "@/components/Navbar";
 import { Image as ImageIcon } from "lucide-react";
 import React, { Fragment, useState, useEffect } from "react";
@@ -2324,7 +2323,6 @@ const AdminHospitalForm = () => {
           </form>
         </div>
       </div>
-      <Footer />
     </Fragment>
   );
 };

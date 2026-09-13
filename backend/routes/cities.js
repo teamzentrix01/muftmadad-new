@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
+const recycleBinService = require('../services/recycleBin.service');
 
 // PUBLIC ROUTES - No authentication needed
 // GET /api/cities - Get all active cities
@@ -57,7 +58,7 @@ router.get('/cities/:slug', async (req, res) => {
     }
 });
 
-// ADMIN ROUTES - No authentication for now (add auth later)
+// ADMIN ROUTES
 router.get('/admin/cities', async (req, res) => {
     try {
         const result = await pool.query(
@@ -118,7 +119,6 @@ router.post('/admin/cities', async (req, res) => {
     } catch (error) {
         console.error('Error creating city:', error);
         
-        // Check for duplicate slug
         if (error.code === '23505') {
             return res.status(400).json({
                 success: false,
@@ -139,7 +139,6 @@ router.put('/admin/cities/:id', async (req, res) => {
         const { id } = req.params;
         const { name_en, name_hi, slug, display_order, is_active } = req.body;
         
-        // Check if city exists
         const cityCheck = await pool.query(
             'SELECT id FROM cities WHERE id = $1',
             [id]
@@ -152,7 +151,6 @@ router.put('/admin/cities/:id', async (req, res) => {
             });
         }
         
-        // Check if slug is unique (excluding current city)
         if (slug) {
             const slugCheck = await pool.query(
                 'SELECT id FROM cities WHERE slug = $1 AND id != $2',
@@ -167,7 +165,6 @@ router.put('/admin/cities/:id', async (req, res) => {
             }
         }
         
-        // Build dynamic update query
         const updates = [];
         const values = [];
         let paramCount = 1;
@@ -224,26 +221,37 @@ router.put('/admin/cities/:id', async (req, res) => {
     }
 });
 
-// DELETE - Delete city
+// DELETE - Delete city with Recycle Bin integration
 router.delete('/admin/cities/:id', async (req, res) => {
     try {
         const { id } = req.params;
         
-        const result = await pool.query(
-            'DELETE FROM cities WHERE id = $1 RETURNING *',
-            [id]
-        );
-        
-        if (result.rows.length === 0) {
+        const check = await pool.query('SELECT * FROM cities WHERE id = $1', [id]);
+        if (check.rows.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: 'City not found'
             });
         }
+        const existingCity = check.rows[0];
+
+        await recycleBinService.moveToBin({
+            entityType: 'city',
+            entityId: existingCity.id,
+            entityName: existingCity.name_en || existingCity.name_hi || 'City',
+            sourceDashboard: 'City Dashboard',
+            originalData: existingCity,
+            deletedByUser: req.adminUser || req.user
+        });
+
+        const result = await pool.query(
+            'DELETE FROM cities WHERE id = $1 RETURNING *',
+            [id]
+        );
         
         res.json({
             success: true,
-            message: 'City deleted successfully',
+            message: 'City moved to recycle bin successfully',
             data: result.rows[0]
         });
     } catch (error) {

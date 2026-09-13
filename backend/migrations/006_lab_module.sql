@@ -10,7 +10,8 @@ CREATE TABLE lab_tests (
  id bigserial PRIMARY KEY, name text NOT NULL, kind text NOT NULL CHECK(kind IN ('test','package')),
  price numeric(12,2) NOT NULL CHECK(price>=0), sample_type text NOT NULL,
  preparation text NOT NULL DEFAULT '', includes text NOT NULL DEFAULT '',
- turnaround_hours integer NOT NULL CHECK(turnaround_hours>0), is_active boolean NOT NULL DEFAULT true
+ turnaround_hours integer NOT NULL CHECK(turnaround_hours>0), is_active boolean NOT NULL DEFAULT true,
+ home_collection boolean NOT NULL DEFAULT true
 );
 CREATE TABLE lab_collectors (
  id bigserial PRIMARY KEY, name text NOT NULL, phone text NOT NULL,

@@ -23,10 +23,28 @@ export default function HospitalCareAdmin({ initialTab = 'overview', standalone 
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [editingPackage, setEditingPackage] = useState(null);
+  const [accountData, setAccountData] = useState({
+    stats: { total_accounts: 0, total_patients: 0, total_staff: 0, recent_signups: 0 },
+    recent: []
+  });
   const load = useCallback(async (signal) => {
     const [d, c] = await Promise.all([careApi('/manage/overview', { signal }), careApi('/catalog', { signal })]);
     if (signal?.aborted) return;
     setData(d); setCatalog({ ...c, hospitals: d.isadmin ? c.hospitals : c.hospitals.filter(h => d.hospital_ids.includes(h.id)) });
+    if (d.isadmin) {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+        const accRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/admin-users/accounts`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          credentials: 'include',
+          signal
+        });
+        if (accRes.ok) {
+          const json = await accRes.json();
+          setAccountData({ stats: json.stats || {}, recent: (json.data || []).slice(0, 5) });
+        }
+      } catch {}
+    }
     setLoaded(true); setError(''); setNeedsLogin(false);
   }, []);
   useEffect(() => { const controller = new AbortController(); load(controller.signal).catch(e => { if (!controller.signal.aborted) { setError(e.message); setNeedsLogin(e.status === 401); } }).finally(() => { if (!controller.signal.aborted) setLoading(false); }); return () => controller.abort(); }, [load]);
@@ -44,7 +62,7 @@ export default function HospitalCareAdmin({ initialTab = 'overview', standalone 
   const day = new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
   return <div className="p-4 sm:p-7 lg:p-9 text-slate-800">
-    <header className="mb-7 flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Hospital management · From confusion to care</p><h1 className="mt-2 text-2xl sm:text-3xl font-bold">{titles[tab]}</h1><p className="mt-2 text-sm text-slate-500">{day}</p></div><div className="flex gap-2"><Link href="/care" className={secondary}>Patient view <ArrowUpRight size={16} /></Link><button aria-label="Refresh dashboard" className={secondary} disabled={busy || loading} onClick={() => action(async () => {}, 'Dashboard refreshed.')}><RefreshCw size={16} /></button></div></header>
+    <header className="mb-7 flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-widest text-emerald-600">Hospital management · From confusion to care</p><h1 className="mt-2 text-2xl sm:text-3xl font-bold">{titles[tab]}</h1><p className="mt-2 text-sm text-slate-500">{day}</p></div><div className="flex gap-2"><Link href="/care" className={secondary}>Patient view <ArrowUpRight size={16} /></Link><Link href="/labs/workspace" className={secondary}>Staff workspace <ArrowUpRight size={16} /></Link><button aria-label="Refresh dashboard" className={secondary} disabled={busy || loading} onClick={() => action(async () => {}, 'Dashboard refreshed.')}><RefreshCw size={16} /></button></div></header>
     <nav aria-label="Hospital workflow" className="mb-6 flex gap-2 overflow-x-auto pb-2">{tabs.filter(t => data.isadmin || t !== 'settings').map(t => <button key={t} onClick={() => navigate(t)} className={`whitespace-nowrap ${tab === t ? primary : secondary}`}>{label(t)}</button>)}</nav>
     {error && <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}{needsLogin && <Link href="/login?next=/provider" className="ml-3 underline">Log in</Link>}</div>}
     {notice && <div role="status" className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">{notice}</div>}
@@ -55,6 +73,76 @@ export default function HospitalCareAdmin({ initialTab = 'overview', standalone 
         ].map(([title, count, Icon, target], i) => <button key={title} onClick={() => navigate(target)} className={`rounded-2xl p-6 text-left shadow-sm ${i === 0 ? 'bg-gradient-to-br from-blue-600 to-emerald-500 text-white' : 'border border-slate-100 bg-white'}`}><div className="flex justify-between items-center text-sm font-medium"><span>{title}</span><Icon size={21} className={i ? 'text-blue-500' : 'text-blue-100'} /></div><p className="mt-5 text-4xl font-bold">{count}</p><p className={`mt-2 text-xs ${i ? 'text-slate-400' : 'text-blue-100'}`}>View and manage →</p></button>)}</div>
         <section className={`${card} mt-6`}><h2 className="text-lg font-bold">Patient journey</h2><p className="mt-1 text-sm text-slate-500">Manage the complete flow from finding care to recovery.</p><div className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">{[['01','Requirement','Concern & city','settings'],['02','Specialist','Verified doctor','availability'],['03','Compare cost','Hospital packages','packages'],['04','Book & guide','Appointments','appointments'],['05','Financial help','Review requests','assistance'],['06','Ongoing care','Treatment & follow-up','followups']].map(([n,title,detail,target]) => <button key={n} className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-left hover:border-blue-300" onClick={() => navigate(target === 'settings' && !data.isadmin ? 'availability' : target)}><span className="text-xs font-bold text-emerald-600">STEP {n}</span><h3 className="mt-3 text-sm font-bold">{title}</h3><p className="mt-1 text-xs text-slate-500">{detail}</p></button>)}</div></section>
         <div className="mt-6 grid gap-6 xl:grid-cols-3"><section className={`${card} xl:col-span-2`}><div className="flex justify-between"><h2 className="font-bold text-lg">Recent appointments</h2><button className="text-sm font-semibold text-blue-600" onClick={() => navigate('appointments')}>View all →</button></div>{!data.appointments.length ? <p className="py-10 text-sm text-slate-500">Bookings will appear here when patients confirm an appointment.</p> : <div className="mt-4 divide-y divide-slate-100">{data.appointments.slice(0,5).map(a => <button key={a.id} onClick={() => { navigate('appointments'); setSearch(a.id); }} className="flex w-full flex-wrap justify-between gap-3 py-4 text-left"><div><p className="font-semibold text-sm">{a.patient_name}</p><p className="mt-1 text-xs text-slate-500">{a.doctor_name} · {a.hospital_name}</p></div><div className="text-right"><p className="text-xs text-slate-500">{when(a.starts_at)}</p><Badge value={a.status} /></div></button>)}</div>}</section><section className={card}><h2 className="font-bold text-lg">Ready to receive patients?</h2><p className="mt-2 text-sm text-slate-500">Verified doctors need published availability. Packages make comparison possible.</p><div className="mt-5 space-y-3">{[['Published packages',data.packages.filter(p => p.is_active).length,'packages'],['Upcoming slots',data.slots.filter(s => s.is_active && new Date(s.starts_at)>new Date()).length,'availability']].map(([s,n,t]) => <button key={s} className="flex w-full justify-between rounded-xl bg-blue-50 p-4 text-sm" onClick={() => navigate(t)}><span>{s}</span><strong className="text-blue-700">{n}</strong></button>)}</div><button className={`${primary} mt-5 w-full`} onClick={() => navigate('availability')}><Plus size={16} /> Publish availability</button></section></div>
+        {data.isadmin && <section className={`${card} mt-6`}>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h2 className="font-bold text-lg text-slate-800">Recent Account Registrations &amp; Staff Members</h2>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">Real-time record of users creating accounts (Patients &amp; Healthcare Staff)</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-100">
+                Total Users: {accountData.stats.total_accounts || 0}
+              </span>
+              <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
+                Staff Members: {accountData.stats.total_staff || 0}
+              </span>
+            </div>
+          </div>
+          {!accountData.recent.length ? (
+            <p className="text-xs text-slate-400 py-4">No registered accounts recorded yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase tracking-wider">
+                    <th className="pb-2.5 font-bold">User</th>
+                    <th className="pb-2.5 font-bold">Role</th>
+                    <th className="pb-2.5 font-bold">Post / Designation</th>
+                    <th className="pb-2.5 font-bold">Phone</th>
+                    <th className="pb-2.5 font-bold">Registered At</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {accountData.recent.map(u => (
+                    <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-2.5">
+                        <p className="font-bold text-slate-800">{u.name}</p>
+                        <p className="text-[11px] text-slate-400">{u.email}</p>
+                      </td>
+                      <td className="py-2.5">
+                        <span className={`px-2 py-0.5 rounded-md font-bold text-[11px] ${
+                          u.role === 'staff'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : u.isadmin
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {u.role === 'staff' ? '🩺 Staff' : (u.isadmin ? '🛡️ Admin' : '👤 Patient')}
+                        </span>
+                      </td>
+                      <td className="py-2.5">
+                        {u.role === 'staff' ? (
+                          <span className={`font-semibold ${u.post && u.post !== '-' && u.post !== 'Pending Assignment' ? 'text-slate-700' : 'text-slate-400'}`}>
+                            {u.post && u.post !== '-' && u.post !== 'Pending Assignment' ? u.post : '-'}
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 text-slate-500 font-mono">{u.phone || '—'}</td>
+                      <td className="py-2.5 text-slate-400">
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>}
       </>}
 
       {tab === 'appointments' && <><div className="mb-5 flex flex-wrap gap-3"><input className={`${input} sm:max-w-sm`} aria-label="Search appointments" placeholder="Search patient, doctor, hospital or booking…" value={search} onChange={e => setSearch(e.target.value)} /><select className={`${input} sm:max-w-xs`} aria-label="Filter appointment status" value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{Object.keys(data.transitions).map(s => <option key={s} value={s}>{label(s)}</option>)}</select></div>{!appointments.length && <Empty title="No appointments found" detail="Publish slots and invite patients to book through the Hospital care page." />}<div className="space-y-5">{appointments.map(a => <Appointment key={a.id} booking={a} transitions={data.transitions} action={action} busy={busy} />)}</div></>}
